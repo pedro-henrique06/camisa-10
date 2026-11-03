@@ -1,25 +1,117 @@
 import { useEffect, useState } from 'react';
-import { Animated, Easing, View } from 'react-native';
-import Svg, { Circle, G, Path, Rect, Text as SvgText } from 'react-native-svg';
+import { Animated, Easing, Pressable, View } from 'react-native';
+import Svg, { Circle, Defs, G, Line, LinearGradient as SvgGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 
 import type { Badge as BadgeT } from '@/api/types';
-import { useTheme } from '@/theme';
+import { font, useTheme } from '@/theme';
 
-/** Escudo do clube (badge). */
+/** Escudo do clube com brilho. */
 export function Badge({ badge, size = 36 }: { badge: BadgeT; size?: number }) {
+  const id = 'b' + badge.primary.replace('#', '') + badge.secondary.replace('#', '');
   return (
     <Svg width={size} height={size * 1.1} viewBox="0 0 40 44">
+      <Defs>
+        <SvgGradient id={id} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#ffffff" stopOpacity={0.35} />
+          <Stop offset="0.5" stopColor="#ffffff" stopOpacity={0} />
+        </SvgGradient>
+      </Defs>
       <Path d="M4 4h32v18c0 9-7 14-16 18C11 36 4 31 4 22z" fill={badge.primary} stroke={badge.secondary} strokeWidth={2} />
-      <SvgText x={20} y={26} textAnchor="middle" fontSize={13} fontWeight="800" fill={badge.secondary}>
+      <Path d="M4 4h32v18c0 9-7 14-16 18C11 36 4 31 4 22z" fill={`url(#${id})`} />
+      <SvgText x={20} y={26} textAnchor="middle" fontSize={13} fontFamily={font.display} fill={badge.secondary}>
         {badge.initials}
       </SvgText>
     </Svg>
   );
 }
 
-/** Entrada com giro e "pulo" (animação .tw do original). */
+/** Anel do overall: o preenchimento mostra o valor de 0 a 99. */
+export function OvrRing({ value, size = 76 }: { value: number; size?: number }) {
+  const t = useTheme();
+  const r = 32,
+    c = 2 * Math.PI * r;
+  const [a] = useState(() => new Animated.Value(value));
+  const [shown, setShown] = useState(value);
+  useEffect(() => {
+    const id = a.addListener(({ value: v }) => setShown(Math.round(v)));
+    Animated.timing(a, { toValue: value, duration: 700, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+    return () => a.removeListener(id);
+  }, [a, value]);
+  return (
+    <View style={{ width: size, height: size }}>
+      <Svg width={size} height={size} viewBox="0 0 76 76">
+        <Circle cx={38} cy={38} r={r} stroke={t.line} strokeWidth={6} fill="none" />
+        <Circle
+          cx={38}
+          cy={38}
+          r={r}
+          stroke={t.acc}
+          strokeWidth={6}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${(c * shown) / 99} ${c}`}
+          transform="rotate(-90 38 38)"
+        />
+        <SvgText x={38} y={44} textAnchor="middle" fontSize={26} fontFamily={font.display} fill={t.ink}>
+          {String(shown)}
+        </SvgText>
+        <SvgText x={38} y={57} textAnchor="middle" fontSize={8} fontFamily={font.bold} fill={t.mut} letterSpacing={1}>
+          OVR
+        </SvgText>
+      </Svg>
+    </View>
+  );
+}
+
+/** Camisa 10 da tela inicial, flutuando de leve. */
+export function Jersey({ size = 150 }: { size?: number }) {
+  const t = useTheme();
+  const [a] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(a, { toValue: 1, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(a, { toValue: 0, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [a]);
+  return (
+    <Animated.View
+      style={{
+        transform: [
+          { translateY: a.interpolate({ inputRange: [0, 1], outputRange: [0, -8] }) },
+          { rotate: a.interpolate({ inputRange: [0, 1], outputRange: ['-4deg', '2deg'] }) },
+        ],
+      }}
+    >
+      <Svg width={size} height={size} viewBox="0 0 120 120">
+        <Defs>
+          <SvgGradient id="jg" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={t.accHi} />
+            <Stop offset="1" stopColor={t.acc} />
+          </SvgGradient>
+        </Defs>
+        <Path
+          d="M40 12l-26 14 10 22 10-5v63h52V43l10 5 10-22-26-14c-3 8-11 13-20 13s-17-5-20-13z"
+          fill="url(#jg)"
+          stroke="#b8890a"
+          strokeWidth={2.5}
+          strokeLinejoin="round"
+        />
+        <Path d="M40 12c3 8 11 13 20 13s17-5 20-13" fill="none" stroke="#0d6b3f" strokeWidth={4} />
+        <SvgText x={60} y={88} textAnchor="middle" fontSize={44} fontFamily={font.display} fill="#0d4a2e">
+          10
+        </SvgText>
+      </Svg>
+    </Animated.View>
+  );
+}
+
+/** Entrada com giro e "pulo". */
 function Pop({ children }: { children: React.ReactNode }) {
-  const a = useState(() => new Animated.Value(0))[0];
+  const [a] = useState(() => new Animated.Value(0));
   useEffect(() => {
     Animated.timing(a, { toValue: 1, duration: 1000, easing: Easing.out(Easing.back(2)), useNativeDriver: true }).start();
   }, [a]);
@@ -43,9 +135,9 @@ function Pop({ children }: { children: React.ReactNode }) {
 
 const CONFETTI = ['#f4c20d', '#ff7a70', '#7be495', '#6cabdd', '#ffffff'];
 
-function Confetti() {
+export function Confetti() {
   const [pieces] = useState(() =>
-    Array.from({ length: 26 }, (_, i) => ({
+    Array.from({ length: 30 }, (_, i) => ({
       left: 2 + Math.random() * 94,
       delay: Math.random() * 900,
       color: CONFETTI[i % 5],
@@ -58,7 +150,7 @@ function Confetti() {
     );
   }, [pieces]);
   return (
-    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 0 }}>
+    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 0, zIndex: 5 }}>
       {pieces.map((p, i) => (
         <Animated.View
           key={i}
@@ -68,10 +160,11 @@ function Confetti() {
             left: `${p.left}%`,
             width: 7,
             height: 12,
+            borderRadius: 2,
             backgroundColor: p.color,
             opacity: p.v.interpolate({ inputRange: [0, 0.01, 1], outputRange: [0, 1, 0] }),
             transform: [
-              { translateY: p.v.interpolate({ inputRange: [0, 1], outputRange: [0, 200] }) },
+              { translateY: p.v.interpolate({ inputRange: [0, 1], outputRange: [0, 220] }) },
               { rotate: p.v.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '540deg'] }) },
             ],
           }}
@@ -86,7 +179,7 @@ export function Trophy() {
     <View style={{ position: 'relative' }}>
       <Confetti />
       <Pop>
-        <Svg viewBox="0 0 64 66" width={76} height={80}>
+        <Svg viewBox="0 0 64 66" width={86} height={90}>
           <Path d="M16 6h32v18c0 10-7 17-16 17S16 34 16 24z" fill="#f4c20d" stroke="#b8890a" strokeWidth={2} />
           <Path d="M16 10H6c0 12 4 18 12 19M48 10h10c0 12-4 18-12 19" fill="none" stroke="#f4c20d" strokeWidth={4} />
           <Rect x={28} y={41} width={8} height={12} fill="#f4c20d" />
@@ -101,19 +194,22 @@ export function Trophy() {
 /** Bola de Ouro. */
 export function GoldenBall() {
   return (
-    <Pop>
-      <Svg viewBox="0 0 64 64" width={76} height={76}>
-        <Circle cx={32} cy={30} r={24} fill="#f4c20d" stroke="#b8890a" strokeWidth={2} />
-        <Path d="M32 18l8 6-3 9H27l-3-9zM24 24l-10 3M40 24l10 3M27 33l-4 10M37 33l4 10" fill="none" stroke="#b8890a" strokeWidth={2} />
-        <Rect x={24} y={54} width={16} height={6} rx={2} fill="#b8890a" />
-      </Svg>
-    </Pop>
+    <View style={{ position: 'relative' }}>
+      <Confetti />
+      <Pop>
+        <Svg viewBox="0 0 64 64" width={86} height={86}>
+          <Circle cx={32} cy={30} r={24} fill="#f4c20d" stroke="#b8890a" strokeWidth={2} />
+          <Path d="M32 18l8 6-3 9H27l-3-9zM24 24l-10 3M40 24l10 3M27 33l-4 10M37 33l4 10" fill="none" stroke="#b8890a" strokeWidth={2} />
+          <Rect x={24} y={54} width={16} height={6} rx={2} fill="#b8890a" />
+        </Svg>
+      </Pop>
+    </View>
   );
 }
 
 /** Braçadeira de capitão. */
 export function Armband() {
-  const a = useState(() => new Animated.Value(0))[0];
+  const [a] = useState(() => new Animated.Value(0));
   useEffect(() => {
     Animated.timing(a, { toValue: 1, duration: 900, easing: Easing.out(Easing.back(2)), useNativeDriver: true }).start();
   }, [a]);
@@ -131,7 +227,7 @@ export function Armband() {
     >
       <Svg viewBox="0 0 120 60" width={150} height={75}>
         <Path d="M10 14c20-10 80-10 100 0v32c-20 10-80 10-100 0z" fill="#f4c20d" stroke="#b8890a" strokeWidth={3} />
-        <SvgText x={60} y={42} textAnchor="middle" fontSize={34} fontWeight="800" fill="#10261c">
+        <SvgText x={60} y={44} textAnchor="middle" fontSize={34} fontFamily={font.display} fill="#10261c">
           C
         </SvgText>
       </Svg>
@@ -149,39 +245,44 @@ const SPOTS: Record<string, [number, number][]> = {
 };
 const SHORT: Record<string, string> = { Atacante: 'ATA', Ponta: 'PON', Meia: 'MEI', Volante: 'VOL', Lateral: 'LAT', Zagueiro: 'ZAG' };
 
-/** Campo com as posições (pitch). */
-export function Pitch({ selected, current, onPick }: { selected?: string | null; current?: string | null; onPick?: (p: string) => void }) {
+/** Campo com as posições. */
+export function Pitch({ selected, current, onPick, width = 240 }: { selected?: string | null; current?: string | null; onPick?: (p: string) => void; width?: number }) {
   const t = useTheme();
+  const lines = 'rgba(255,255,255,0.55)';
   return (
     <View style={{ alignItems: 'center', marginVertical: 12 }}>
-      <Svg viewBox="0 0 200 262" width={240} height={314}>
-        <G fill="none" stroke={t.line} strokeWidth={2}>
-          <Rect x={4} y={4} width={192} height={254} />
+      <Svg viewBox="0 0 200 262" width={width} height={(width * 262) / 200}>
+        <Defs>
+          <SvgGradient id="grass" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor="#1f7a4a" />
+            <Stop offset="1" stopColor="#145c37" />
+          </SvgGradient>
+        </Defs>
+        <Rect x={4} y={4} width={192} height={254} rx={8} fill="url(#grass)" />
+        {Array.from({ length: 8 }, (_, i) => (
+          <Rect key={i} x={4} y={4 + i * 31.75} width={192} height={15.9} fill="#ffffff" fillOpacity={0.04} />
+        ))}
+        <G fill="none" stroke={lines} strokeWidth={1.5}>
+          <Rect x={4} y={4} width={192} height={254} rx={8} />
           <Path d="M4 131h192" />
           <Circle cx={100} cy={131} r={25} />
           <Rect x={55} y={4} width={90} height={40} />
           <Rect x={55} y={218} width={90} height={40} />
         </G>
         {Object.entries(SPOTS).flatMap(([pos, spots]) =>
-          spots.map(([x, y], i) => (
-            <G key={pos + i}>
-              <Circle
-                cx={x}
-                cy={y}
-                r={12}
-                fill={pos === selected ? t.acc : 'transparent'}
-                stroke={pos === selected || pos === current ? t.acc : t.ink}
-                strokeWidth={2}
-                strokeDasharray={pos === current && pos !== selected ? '4' : undefined}
-                onPress={onPick ? () => onPick(pos) : undefined}
-              />
-              {/* área de toque maior que o círculo */}
-              {onPick && <Circle cx={x} cy={y} r={20} fill="transparent" onPress={() => onPick(pos)} />}
-              <SvgText x={x} y={y + 27} textAnchor="middle" fontSize={12} fontWeight="700" fill={t.mut}>
-                {SHORT[pos]}
-              </SvgText>
-            </G>
-          )),
+          spots.map(([x, y], i) => {
+            const on = pos === selected;
+            const cur = pos === current && !on;
+            return (
+              <G key={pos + i} onPress={onPick ? () => onPick(pos) : undefined}>
+                {onPick && <Circle cx={x} cy={y} r={20} fill="transparent" />}
+                <Circle cx={x} cy={y} r={on ? 14 : 12} fill={on ? t.acc : 'rgba(11,36,25,0.55)'} stroke={on || cur ? t.acc : '#ffffff'} strokeWidth={2} strokeDasharray={cur ? '4' : undefined} />
+                <SvgText x={x} y={y + 4} textAnchor="middle" fontSize={9} fontFamily={font.bold} fill={on ? '#10261c' : '#ffffff'}>
+                  {SHORT[pos]}
+                </SvgText>
+              </G>
+            );
+          }),
         )}
       </Svg>
     </View>
@@ -191,28 +292,130 @@ export function Pitch({ selected, current, onPick }: { selected?: string | null;
 /** Dado de 20 lados que gira ao aparecer. */
 export function D20({ value }: { value: number }) {
   const t = useTheme();
-  const a = useState(() => new Animated.Value(0))[0];
+  const [a] = useState(() => new Animated.Value(0));
   useEffect(() => {
-    Animated.timing(a, { toValue: 1, duration: 700, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    Animated.timing(a, { toValue: 1, duration: 800, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }, [a]);
   return (
     <Animated.View
       style={{
-        width: 46,
-        height: 46,
+        width: 52,
+        height: 52,
         opacity: a,
         transform: [
           { rotate: a.interpolate({ inputRange: [0, 1], outputRange: ['-540deg', '0deg'] }) },
-          { scale: a.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) },
+          { scale: a.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.4, 1.15, 1] }) },
         ],
       }}
     >
-      <Svg width={46} height={46} viewBox="0 0 46 46">
+      <Svg width={52} height={52} viewBox="0 0 46 46">
         <Path d="M23 0L46 11.5V34.5L23 46L0 34.5V11.5z" fill={t.acc} />
-        <SvgText x={23} y={31} textAnchor="middle" fontSize={22} fontWeight="800" fill={t.accText}>
+        <Path d="M23 0L46 11.5L23 18L0 11.5z" fill="#ffffff" fillOpacity={0.25} />
+        <SvgText x={23} y={31} textAnchor="middle" fontSize={22} fontFamily={font.display} fill={t.accText}>
           {String(value)}
         </SvgText>
       </Svg>
     </Animated.View>
+  );
+}
+
+const GOAL_W = 300,
+  GOAL_H = 140,
+  RUN = 44; // espaço abaixo do gol até a marca do pênalti
+
+/**
+ * Gol do pênalti: 6 zonas. Ao tocar, a bola voa até o ponto e só depois a escolha é enviada.
+ */
+export function PenaltyGoal({ zones, onShoot, disabled }: { zones: string[]; onShoot: (i: number) => void; disabled?: boolean }) {
+  const t = useTheme();
+  const [width, setWidth] = useState(320);
+  const [target, setTarget] = useState<number | null>(null);
+  const [fly] = useState(() => new Animated.Value(0));
+  const scale = width / GOAL_W;
+  const zone = (i: number) => ({ x: 12 + (i % 3) * 92, y: 14 + (i > 2 ? 58 : 0), w: 92, h: 58 });
+
+  const shoot = (i: number) => {
+    if (disabled || target != null) return;
+    setTarget(i);
+    Animated.timing(fly, { toValue: 1, duration: 520, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(() => onShoot(i));
+  };
+
+  const z = target != null ? zone(target) : null;
+  const startX = width / 2 - 14,
+    startY = (GOAL_H + RUN) * scale - 34;
+  const endX = z ? (z.x + z.w / 2) * scale - 14 : startX;
+  const endY = z ? (z.y + z.h / 2) * scale - 14 : startY;
+
+  return (
+    <View onLayout={(e) => setWidth(Math.min(360, e.nativeEvent.layout.width))} style={{ alignSelf: 'stretch', alignItems: 'center' }}>
+      <View style={{ width, height: (GOAL_H + RUN) * scale }}>
+        <Svg width={width} height={(GOAL_H + RUN) * scale} viewBox={`0 0 ${GOAL_W} ${GOAL_H + RUN}`}>
+          {/* rede */}
+          <G stroke="rgba(255,255,255,0.18)" strokeWidth={1}>
+            {Array.from({ length: 24 }, (_, i) => (
+              <Line key={'v' + i} x1={12 + i * 12} y1={14} x2={12 + i * 12} y2={130} />
+            ))}
+            {Array.from({ length: 10 }, (_, i) => (
+              <Line key={'h' + i} x1={12} y1={14 + i * 12} x2={288} y2={14 + i * 12} />
+            ))}
+          </G>
+          {/* traves */}
+          <Path d="M8 134V10h284v124" fill="none" stroke="#ffffff" strokeWidth={6} strokeLinejoin="round" />
+          <Line x1={0} y1={134} x2={300} y2={134} stroke="rgba(255,255,255,0.5)" strokeWidth={2} />
+          {/* goleiro */}
+          <G opacity={0.9}>
+            <Circle cx={150} cy={78} r={9} fill="#ff7a70" />
+            <Path d="M136 92h28l6 36h-40z" fill="#ff7a70" />
+            <Path d="M136 94l-18-14M164 94l18-14" stroke="#ff7a70" strokeWidth={6} strokeLinecap="round" />
+          </G>
+          {zones.map((label, i) => {
+            const q = zone(i);
+            return (
+              <Rect
+                key={label}
+                x={q.x}
+                y={q.y}
+                width={q.w}
+                height={q.h}
+                fill={target === i ? t.acc : '#ffffff'}
+                fillOpacity={target === i ? 0.35 : 0.02}
+                stroke={t.acc}
+                strokeOpacity={0.8}
+                strokeWidth={1.5}
+                strokeDasharray="4 4"
+                onPress={() => shoot(i)}
+              />
+            );
+          })}
+          {/* marca do pênalti */}
+          <Circle cx={150} cy={GOAL_H + RUN - 12} r={3} fill="#ffffff" />
+        </Svg>
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            transform: [
+              { translateX: fly.interpolate({ inputRange: [0, 1], outputRange: [startX, endX] }) },
+              { translateY: fly.interpolate({ inputRange: [0, 1], outputRange: [startY, endY] }) },
+              { scale: fly.interpolate({ inputRange: [0, 1], outputRange: [1, 0.6] }) },
+              { rotate: fly.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '720deg'] }) },
+            ],
+          }}
+        >
+          <Svg width={28} height={28} viewBox="0 0 28 28">
+            <Circle cx={14} cy={14} r={12} fill="#ffffff" stroke="#10261c" strokeWidth={1.5} />
+            <Path d="M14 8l5 3.5-2 5.5h-6l-2-5.5z" fill="#10261c" />
+          </Svg>
+        </Animated.View>
+      </View>
+      {/* acessibilidade: botões com o nome das zonas para leitores de tela */}
+      <View style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0 }}>
+        {zones.map((label, i) => (
+          <Pressable key={label} accessibilityRole="button" accessibilityLabel={'Bater ' + label} onPress={() => shoot(i)} />
+        ))}
+      </View>
+    </View>
   );
 }

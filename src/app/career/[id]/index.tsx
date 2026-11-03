@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text } from 'react-native';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 
 import { api } from '@/api/client';
 import type { ActionType, GameView } from '@/api/types';
@@ -18,7 +18,7 @@ import {
   SeasonCard,
   SwapCard,
 } from '@/phases/Phases';
-import { useTheme } from '@/theme';
+import { font, useTheme } from '@/theme';
 
 /** Tela de jogo: mostra a fase atual vinda do servidor e envia as ações do jogador. */
 export default function CareerScreen() {
@@ -31,14 +31,14 @@ export default function CareerScreen() {
   const scroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const inFlight = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = async () => {
     setError(null);
     try {
       setView(await api.get(id));
     } catch (e) {
       setError((e as Error).message);
     }
-  }, [id]);
+  };
 
   useEffect(() => {
     let alive = true;
@@ -59,7 +59,7 @@ export default function CareerScreen() {
     try {
       const next = await api.act(view.id, view.version, type, index);
       setView(next);
-      scroll.current?.scrollTo({ y: 0, animated: false });
+      scroll.current?.scrollTo({ y: 0, animated: true });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -78,7 +78,10 @@ export default function CareerScreen() {
             <Btn label="Voltar ao início" onPress={() => router.replace('/')} />
           </Card>
         ) : (
-          <ActivityIndicator color={t.acc} style={{ marginTop: 80 }} />
+          <View style={{ alignItems: 'center', marginTop: 120, gap: 12 }}>
+            <ActivityIndicator color={t.acc} size="large" />
+            <Text style={{ color: t.mut, fontFamily: font.medium }}>Entrando em campo…</Text>
+          </View>
         )}
       </Screen>
     );
@@ -97,8 +100,37 @@ export default function CareerScreen() {
   // Remonta a tela a cada nova versão para reiniciar as animações.
   const key = `${view.phase}-${view.version}`;
 
+  // Ação principal fixa no rodapé, quando a fase tem uma.
+  let footer: ReactNode = null;
+  switch (view.phase) {
+    case 'Calendar':
+      footer = <Btn primary label={`Começar o dia ${view.calendar?.nextDay ?? ''}  ›`} onPress={next} busy={busy} />;
+      break;
+    case 'Result':
+      footer = <Btn primary label="Continuar  ›" onPress={next} busy={busy} />;
+      break;
+    case 'Promotion':
+      footer = <Btn primary label="Começar a carreira profissional  ›" onPress={next} busy={busy} />;
+      break;
+    case 'SeasonSummary':
+      footer = <Btn primary label="Próxima temporada  ›" onPress={next} busy={busy} />;
+      break;
+    case 'Decision':
+      footer = (
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <Btn label="Pendurar as chuteiras" onPress={() => act('Retire')} disabled={busy} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Btn primary label="Seguir jogando" onPress={next} busy={busy} />
+          </View>
+        </View>
+      );
+      break;
+  }
+
   return (
-    <Screen scrollRef={scroll}>
+    <Screen scrollRef={scroll} footer={footer}>
       <Hud
         hud={view.hud}
         busy={busy}
@@ -106,29 +138,25 @@ export default function CareerScreen() {
         onSearchClub={() => act('SearchClub')}
       />
       {error && (
-        <Card style={{ borderColor: t.bad, marginBottom: 12 }}>
-          <Text style={{ color: t.bad }}>{error}</Text>
+        <Card accent={t.bad} style={{ marginBottom: 12 }}>
+          <Text style={{ color: t.bad, fontFamily: font.semibold }}>{error}</Text>
           <Btn small label="Recarregar" onPress={load} />
         </Card>
       )}
-      {view.phase === 'Calendar' && view.calendar && <Calendar key={key} cal={view.calendar} onNext={next} busy={busy} />}
+      {view.phase === 'Calendar' && view.calendar && <Calendar key={key} cal={view.calendar} />}
       {(view.phase === 'Event' || view.phase === 'Penalty') && view.event && (
         <EventCard key={key} ev={view.event} onChoose={choose} busy={busy} />
       )}
-      {view.phase === 'Result' && view.result && <ResultCard key={key} r={view.result} onNext={next} busy={busy} />}
+      {view.phase === 'Result' && view.result && <ResultCard key={key} r={view.result} />}
       {view.phase === 'Market' && view.market && (
         <MarketCard key={key} m={view.market} onChoose={choose} onStay={() => act('Stay')} busy={busy} />
       )}
       {view.phase === 'Swap' && view.swap && (
         <SwapCard key={key} current={view.swap.current} suggested={view.swap.suggested} onChoose={choose} busy={busy} />
       )}
-      {view.phase === 'Promotion' && view.promotion && (
-        <PromotionCard key={key} club={view.promotion.club} onNext={next} busy={busy} />
-      )}
-      {view.phase === 'SeasonSummary' && view.season && <SeasonCard key={key} s={view.season} onNext={next} busy={busy} />}
-      {view.phase === 'Decision' && view.decision && (
-        <DecisionCard key={key} age={view.decision.age} onContinue={next} onRetire={() => act('Retire')} busy={busy} />
-      )}
+      {view.phase === 'Promotion' && view.promotion && <PromotionCard key={key} club={view.promotion.club} />}
+      {view.phase === 'SeasonSummary' && view.season && <SeasonCard key={key} s={view.season} />}
+      {view.phase === 'Decision' && view.decision && <DecisionCard key={key} age={view.decision.age} />}
     </Screen>
   );
 }
