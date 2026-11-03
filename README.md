@@ -35,6 +35,18 @@ Para outro endereço, crie `.env.local` a partir de `.env.example` com `EXPO_PUB
 O progresso fica salvo no servidor. O app gera um identificador anônimo do aparelho (guardado no
 AsyncStorage) e o envia no cabeçalho `X-Player-Id`, então cada aparelho vê as próprias carreiras e a galeria.
 
+## Publicar no Railway
+
+O repositório já tem um `railway.json`: o Railway gera o site (`npm run build:web`) e o serve na porta
+que ele define (`npm run start:web`).
+
+1. No mesmo projeto do backend, **+ Create → GitHub Repo →** `camisa-10`.
+2. Em **Variables**, crie `EXPO_PUBLIC_API_URL` com o endereço do backend (ex.:
+   `https://camisa10-back-production.up.railway.app`, com `https` e sem barra no final).
+3. Em **Settings → Networking**, gere o domínio do site.
+
+O endereço da API entra no site durante o build: se mudar a variável, faça um novo deploy.
+
 ## Estrutura
 
 ```
