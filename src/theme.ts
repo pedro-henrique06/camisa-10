@@ -21,6 +21,8 @@ const dark = {
   warn: '#ffb547',
   stripe: 'rgba(255,255,255,0.025)',
   shadow: '#000000',
+  /** Cor de cada competição no calendário. */
+  comp: { league: '#5aa9ff', state: '#ff8f4a', cup: '#c39bff', continental: '#2fd6c3', national: '#ff7eb6' },
 };
 
 const light: typeof dark = {
@@ -43,6 +45,7 @@ const light: typeof dark = {
   warn: '#b86e00',
   stripe: 'rgba(16,38,28,0.03)',
   shadow: '#2b4a37',
+  comp: { league: '#1f6fd1', state: '#c9570f', cup: '#7b4bd8', continental: '#0b8c7d', national: '#c2367a' },
 };
 
 export type Theme = typeof dark;
@@ -64,6 +67,19 @@ export const font = {
 
 /** Títulos e números grandes. */
 export const condensed = { fontFamily: font.display };
+
+export type CompetitionKind = keyof Theme['comp'];
+
+/** Cor da competição (liga, estadual, copa, continental, seleção). */
+export function compColor(t: Theme, kind: string | null | undefined): string {
+  return (kind && t.comp[kind as CompetitionKind]) || t.acc;
+}
+
+/** Cor com transparência (#rrggbb + alfa de 0 a 1). */
+export function alpha(hex: string, a: number): string {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return hex;
+  return hex + Math.round(a * 255).toString(16).padStart(2, '0');
+}
 
 /** Cor da chance de sucesso: verde, amarelo ou vermelho. */
 export function chanceColor(t: Theme, chance: number) {

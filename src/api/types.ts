@@ -66,6 +66,10 @@ export interface HudView {
   seasonAssists: number;
   warnings: string[];
   canSearchClub: boolean;
+  /** Competição de cada dia da temporada (20 posições; nulo = sem jogo). */
+  matchDays?: (CompetitionKind | null)[];
+  /** Data atual (ex.: "18 de janeiro"); nula antes da primeira rodada. */
+  date?: string | null;
 }
 
 export interface CheckView {
@@ -80,7 +84,7 @@ export interface EventView {
   id: string | null;
   title: string;
   text: string;
-  competition: { name: string; subtitle: string } | null;
+  competition: { name: string; subtitle: string; kind: CompetitionKind } | null;
   routine: { club: string; clubBadge: Badge; sessions: number; focus: string; focusName: string } | null;
   visual: 'trophy' | 'ball' | null;
   isPenalty: boolean;
@@ -89,6 +93,37 @@ export interface EventView {
   shotSkill: number | null;
   /** Faixa de força ideal da barra do pênalti. */
   penaltyPower: { idealMin: number; idealMax: number } | null;
+  /** Lance de partida: campo com placar e narração até o lance. */
+  match?: MatchView | null;
+}
+
+export type MatchLineType = 'info' | 'chance-for' | 'chance-against' | 'goal-for' | 'goal-against' | 'whistle' | 'decision';
+
+export interface MatchLine {
+  minute: number;
+  text: string;
+  type: MatchLineType;
+  /** Placar do time do jogador depois da linha. */
+  for: number;
+  against: number;
+}
+
+/** Jogo ao vivo. for/against são do time do jogador. */
+export interface MatchView {
+  team: string;
+  opponent: string;
+  teamBadge: Badge;
+  opponentBadge: Badge;
+  home: boolean;
+  kind: CompetitionKind;
+  competition: string;
+  startFor: number;
+  startAgainst: number;
+  lines: MatchLine[];
+  /** Onde está a bola no lance: pre, attack, defense, center, penalty, cup (ou result depois da decisão). */
+  focus: 'pre' | 'attack' | 'defense' | 'center' | 'penalty' | 'cup' | 'result';
+  final: boolean;
+  position: string;
 }
 
 export interface PenaltyShot {
@@ -118,18 +153,39 @@ export interface ResultView {
   chips: { text: string; up: boolean }[];
   anim: 'capt' | 'trophy' | 'ball' | null;
   penalty: PenaltyShot | null;
+  match?: MatchView | null;
 }
 
 export interface CalendarView {
   dayDone: number;
   nextDay: number;
   intro: string;
-  cells: { day: number; done: boolean; match: boolean; window: boolean }[];
-  strip: { offset: number; weekday: string; day: number; month: string; icon: string }[];
+  cells: {
+    day: number;
+    done: boolean;
+    match: boolean;
+    window: boolean;
+    kind: CompetitionKind | null;
+    competition: string | null;
+    month?: number;
+    dayOfMonth?: number;
+    monthLabel?: string;
+  }[];
+  strip: { offset: number; weekday: string; day: number; month: string; icon: string; kind?: CompetitionKind | null }[];
   stripFrom: number;
   stripTo: number;
-  agenda: { icon: string; title: string; detail: string }[];
+  agenda: { icon: string; title: string; detail: string; kind: CompetitionKind | null }[];
+  /** Legenda: competições da temporada e como cada uma está. */
+  competitions: { kind: CompetitionKind; name: string; status: string; out: boolean; champion: boolean; games: number }[];
+  /** Data da próxima rodada (ex.: "29 de março"). */
+  nextDate?: string;
+  total?: number;
+  /** Ex.: "Temporada de janeiro a dezembro". */
+  seasonSpan?: string;
 }
+
+/** league (liga), state (estadual), cup (copa nacional), continental ou national (seleção). */
+export type CompetitionKind = 'league' | 'state' | 'cup' | 'continental' | 'national';
 
 export interface OfferView {
   index: number;
@@ -180,6 +236,8 @@ export interface SeasonReport {
   /** "up" (acesso), "down" (rebaixamento) ou nulo. */
   movement: 'up' | 'down' | null;
   table: { position: number; club: string; mine: boolean; zone: 'up' | 'down' | null }[];
+  /** Copas da temporada (estadual, copa nacional, continental). */
+  cups?: { kind: CompetitionKind; name: string; result: string; champion: boolean }[];
 }
 
 export interface SeasonView {

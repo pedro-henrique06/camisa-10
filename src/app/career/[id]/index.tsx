@@ -104,7 +104,7 @@ export default function CareerScreen() {
   let footer: ReactNode = null;
   switch (view.phase) {
     case 'Calendar':
-      footer = <Btn primary label={`Começar o dia ${view.calendar?.nextDay ?? ''}  ›`} onPress={next} busy={busy} />;
+      footer = <Btn primary label={view.calendar?.nextDate ? `Ir para ${view.calendar.nextDate}  ›` : `Começar o dia ${view.calendar?.nextDay ?? ''}  ›`} onPress={next} busy={busy} />;
       break;
     case 'Result':
       footer = <Btn primary label="Continuar  ›" onPress={next} busy={busy} />;
