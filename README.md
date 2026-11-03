@@ -42,7 +42,7 @@ que ele define (`npm run start:web`).
 
 1. No mesmo projeto do backend, **+ Create → GitHub Repo →** `camisa-10`.
 2. Em **Variables**, crie `EXPO_PUBLIC_API_URL` com o endereço do backend (ex.:
-   `https://camisa10-back-production.up.railway.app`, com `https` e sem barra no final).
+   `https://camisa10-back-production.up.railway.app`; se faltar o `https://`, o app completa sozinho).
 3. Em **Settings → Networking**, gere o domínio do site.
 
 O endereço da API entra no site durante o build: se mudar a variável, faça um novo deploy.
