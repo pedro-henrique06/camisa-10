@@ -82,6 +82,16 @@ export interface EventView {
   options: { label: string; check: CheckView | null }[];
   penaltyZones: string[] | null;
   shotSkill: number | null;
+  /** Faixa de força ideal da barra do pênalti. */
+  penaltyPower: { idealMin: number; idealMax: number } | null;
+}
+
+export interface PenaltyShot {
+  /** 0-2 em cima, 3-5 embaixo, da esquerda para a direita. */
+  zone: number;
+  power: number;
+  outcome: 'goal' | 'save' | 'post' | 'out';
+  keeperZone: number;
 }
 
 export interface DiceView {
@@ -102,6 +112,7 @@ export interface ResultView {
   dice: DiceView | null;
   chips: { text: string; up: boolean }[];
   anim: 'capt' | 'trophy' | 'ball' | null;
+  penalty: PenaltyShot | null;
 }
 
 export interface CalendarView {

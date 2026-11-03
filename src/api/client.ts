@@ -83,10 +83,10 @@ export const api = {
     request<GameView>('/api/careers', { method: 'POST', body: JSON.stringify(body) }),
   get: (id: string) => request<GameView>(`/api/careers/${id}`),
   /** 409 (tela desatualizada) também devolve a tela atual, então é tratado como resposta normal. */
-  act: (id: string, version: number, type: ActionType, index?: number) =>
+  act: (id: string, version: number, type: ActionType, index?: number, power?: number) =>
     request<GameView>(
       `/api/careers/${id}/actions`,
-      { method: 'POST', body: JSON.stringify({ type, index, version }) },
+      { method: 'POST', body: JSON.stringify({ type, index, power, version }) },
       [409],
     ),
   history: (id: string) => request<HistoryView>(`/api/careers/${id}/history`),
