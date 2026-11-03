@@ -102,9 +102,16 @@ function arrange(ball: P, line: MatchLine, focus: MatchView['focus'], mySlot: nu
   return { mine, opp };
 }
 
+/** Distância entre duas cores #rrggbb (0 a ~441). */
+function colorDistance(a: string, b: string) {
+  const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) || 0);
+  const [x, y] = [rgb(a), rgb(b)];
+  return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]);
+}
+
 /** Cor dos adversários: a principal, ou a secundária quando é parecida com a nossa. */
 function opponentColor(m: MatchView) {
-  const same = m.opponentBadge.primary.toLowerCase() === m.teamBadge.primary.toLowerCase();
+  const same = colorDistance(m.opponentBadge.primary, m.teamBadge.primary) < 90;
   return same ? m.opponentBadge.secondary : m.opponentBadge.primary;
 }
 
@@ -208,6 +215,8 @@ export function MatchPitch({ match, onDone }: { match: MatchView; onDone?: () =>
   const comp = compColor(t, match.kind);
   const myColor = match.teamBadge.primary;
   const oppColor = opponentColor(match);
+  // o jogador em destaque não pode sumir no meio do time (ex.: camisa amarela do Brasil)
+  const meColor = colorDistance(myColor, t.acc) < 120 ? '#ffffff' : t.acc;
   const tone = (l: MatchLine | null) =>
     !l ? t.cardHi
     : l.type === 'goal-for' ? alpha(t.good, 0.22)
@@ -274,7 +283,7 @@ export function MatchPitch({ match, onDone }: { match: MatchView; onDone?: () =>
                       width: size,
                       height: size,
                       borderRadius: size / 2,
-                      backgroundColor: me ? t.acc : mineTeam ? myColor : oppColor,
+                      backgroundColor: me ? meColor : mineTeam ? myColor : oppColor,
                       borderColor: me ? '#10261c' : 'rgba(255,255,255,0.85)',
                       borderWidth: me ? 2 : 1.2,
                       zIndex: me ? 3 : 1,
