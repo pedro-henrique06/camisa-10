@@ -4,7 +4,8 @@ import { Share, StyleSheet, Text, View } from 'react-native';
 
 import { api } from '@/api/client';
 import type { EventView, FinalView, MarketView, PositionOption, ResultView, SeasonView } from '@/api/types';
-import { Armband, Badge, Confetti, D20, GoldenBall, Trophy } from '@/components/art';
+import { Armband, Badge, D20, GoldenBall, Trophy } from '@/components/art';
+import { Celebration } from '@/components/Celebration';
 import { PenaltyAim, PenaltyReplay } from '@/components/PenaltyScene';
 import { PositionPitch } from '@/components/PositionPitch';
 import { Btn, Card, Chip, Eyebrow, FadeIn, H1, H2, haptic, money, P, PressableScale, Row, Stat } from '@/components/ui';
@@ -140,7 +141,11 @@ export function ResultCard({ r }: { r: ResultView }) {
   }
   return (
     <Card accent={c}>
-      {r.success && big && <Confetti />}
+      {r.success && !big && !r.penalty && r.chips.some((ch) => ch.up && ch.text.startsWith('Gol ')) && (
+        <View pointerEvents="none" style={styles.fireworks}>
+          <Celebration kind="fogos" />
+        </View>
+      )}
       {r.penalty && <PenaltyReplayStill shot={r.penalty} />}
       <View style={[styles.banner, { backgroundColor: r.success ? t.goodSoft : t.badSoft }]}>
         <Text style={{ fontSize: 22 }}>{r.success ? '✅' : '❌'}</Text>
@@ -349,7 +354,11 @@ export function FinalScreen({ f, onHome }: { f: FinalView; onHome: () => void })
   };
   return (
     <View>
-      {legend && <Confetti />}
+      {legend && (
+        <View pointerEvents="none" style={{ position: 'absolute', left: -16, right: -16, top: 0, height: 520 }}>
+          <Celebration kind="confete" />
+        </View>
+      )}
       <FadeIn>
         <View style={{ alignItems: 'center', marginTop: 12 }}>
           {legend ? <Trophy /> : <Text style={{ fontSize: 56 }}>👟</Text>}
@@ -381,6 +390,7 @@ export function FinalScreen({ f, onHome }: { f: FinalView; onHome: () => void })
 }
 
 const styles = StyleSheet.create({
+  fireworks: { position: 'absolute', left: 0, right: 0, top: -30, height: 300 },
   comp: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, marginBottom: 14, borderWidth: 1, borderRadius: 12 },
   live: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   tpbar: { flexDirection: 'row', gap: 10, alignItems: 'center', padding: 10, marginBottom: 14, borderWidth: 1, borderRadius: 12 },

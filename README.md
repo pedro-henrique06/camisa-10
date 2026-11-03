@@ -50,6 +50,24 @@ src/
 legacy/index.html            jogo web original
 ```
 
+## Animações de comemoração (Lottie)
+
+Os efeitos de comemoração usam [`lottie-react-native`](https://github.com/lottie-react-native/lottie-react-native):
+
+| Arquivo | Onde aparece |
+| --- | --- |
+| `assets/lottie/fogos.json` | gol em lance de jogo e no pênalti |
+| `assets/lottie/confete.json` | taça, título da temporada, promoção, Bola de Ouro, fim de carreira de lenda |
+| `assets/lottie/raios.json` | raios girando atrás do troféu, da Bola de Ouro e da braçadeira |
+
+As animações são geradas por código, sem arquivos de terceiros:
+
+    python3 tools/lottie/generate.py
+
+Para usar uma animação do [LottieFiles](https://lottiefiles.com), salve o `.json` com o mesmo nome em
+`assets/lottie/` (confira a licença dela). Os efeitos não aparecem quando o sistema pede para reduzir
+movimento. Na versão web, o Lottie baixa o seu módulo `.wasm` da CDN jsDelivr.
+
 ## Verificações
 
     npm run typecheck
