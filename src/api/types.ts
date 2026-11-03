@@ -222,10 +222,20 @@ export interface HistoryView {
   headlines: string[];
 }
 
+export interface PositionOption {
+  name: string;
+  short: string;
+  description: string;
+  /** Peso de cada atributo no overall, do maior para o menor. */
+  weights: { key: string; name: string; percent: number }[];
+}
+
 export interface MetaView {
   baseClubs: { name: string; tier: number; badge: Badge }[];
   nations: { name: string; flag: string }[];
   positions: string[];
+  /** Ausente em servidores antigos. */
+  positionInfo?: PositionOption[];
 }
 
 export interface CareerSummary {
