@@ -3,14 +3,14 @@ import { useEffect, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { CalendarView } from '@/api/types';
-import { Btn, Card, H2, P } from '@/components/ui';
-import { condensed, useTheme } from '@/theme';
+import { Card, Eyebrow, H2 } from '@/components/ui';
+import { condensed, font, useTheme } from '@/theme';
 
 const CHIP = 56;
 const SKIP_KEY = 'c10.skip';
 
 /** Calendário da temporada com a fita de datas deslizando até o próximo dia (calScreen). */
-export function Calendar({ cal, onNext, busy }: { cal: CalendarView; onNext: () => void; busy: boolean }) {
+export function Calendar({ cal }: { cal: CalendarView }) {
   const t = useTheme();
   const [width, setWidth] = useState(300);
   const [skip, setSkip] = useState<boolean | null>(null);
@@ -72,26 +72,45 @@ export function Calendar({ cal, onNext, busy }: { cal: CalendarView; onNext: () 
 
   return (
     <Card>
-      <H2>Calendário da temporada</H2>
-      <P muted>{cal.intro}</P>
+      <Eyebrow>{cal.intro.replace(' Quatro jogos, um a cada 5 dias.', '').replace(/\.$/, '')}</Eyebrow>
+      <H2>Dia {shownDay > 0 ? shownDay : cal.nextDay} de 20</H2>
 
-      <Pressable onPress={finish} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={[styles.strip, { borderColor: t.line }]}>
+      <Pressable onPress={finish} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={[styles.strip, { borderColor: t.line, backgroundColor: t.cardHi }]}>
         <Animated.View style={[styles.track, { transform: [{ translateX: x }] }]}>
           {cal.strip.map((c, i) => {
             const on = i === target;
             return (
-              <View key={c.offset} style={[styles.dc, { opacity: on ? 1 : 0.5, backgroundColor: on ? t.acc : 'transparent' }]}>
+              <View key={c.offset} style={[styles.dc, on && { backgroundColor: t.acc }, { opacity: on ? 1 : 0.55 }]}>
                 <Text style={[styles.dcSmall, { color: on ? t.accText : t.mut }]}>{c.weekday}</Text>
-                <Text style={[condensed, { fontSize: 28, color: on ? t.accText : t.ink }]}>{c.day}</Text>
+                <Text style={[condensed, { fontSize: 28, lineHeight: 30, color: on ? t.accText : t.ink }]}>{c.day}</Text>
                 <Text style={[styles.dcSmall, { color: on ? t.accText : t.mut }]}>{c.month}</Text>
                 {!!c.icon && <Text style={styles.dcIcon}>{c.icon}</Text>}
               </View>
             );
           })}
         </Animated.View>
-        <View style={[styles.ptr, { backgroundColor: t.acc }]} />
+        <View style={[styles.ptr, { borderTopColor: t.acc }]} />
       </Pressable>
 
+      <Text style={[styles.section, { color: t.mut }]}>AGENDA DO DIA {cal.nextDay}</Text>
+      {cal.agenda.map((a, i) => (
+        <Animated.View
+          key={a.title}
+          style={[
+            styles.ai,
+            { backgroundColor: a.icon === '⚽' ? t.accSoft : t.cardHi, borderColor: a.icon === '⚽' ? t.acc : t.line },
+            { opacity: agenda[i], transform: [{ translateX: agenda[i].interpolate({ inputRange: [0, 1], outputRange: [-14, 0] }) }] },
+          ]}
+        >
+          <Text style={{ fontSize: 22, width: 30, textAlign: 'center' }}>{a.icon}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: t.ink, fontFamily: font.bold, fontSize: 15 }}>{a.title}</Text>
+            <Text style={{ color: t.mut, fontSize: 13, fontFamily: font.regular }}>{a.detail}</Text>
+          </View>
+        </Animated.View>
+      ))}
+
+      <Text style={[styles.section, { color: t.mut }]}>TEMPORADA</Text>
       <View style={styles.grid}>
         {cal.cells.map((c) => {
           const now = c.day === shownDay;
@@ -102,68 +121,43 @@ export function Calendar({ cal, onNext, busy }: { cal: CalendarView; onNext: () 
               style={[
                 styles.cell,
                 {
-                  borderColor: now ? t.acc : c.match ? t.acc : t.line,
-                  opacity: isDone || now ? 1 : 0.55,
-                  backgroundColor: now ? t.acc : isDone ? 'rgba(123,228,149,0.14)' : 'transparent',
-                  transform: [{ scale: now ? 1.08 : 1 }],
+                  borderColor: now ? t.acc : c.match ? t.accSoft : t.line,
+                  backgroundColor: now ? t.acc : isDone ? t.goodSoft : 'transparent',
+                  opacity: isDone || now ? 1 : 0.6,
                 },
               ]}
             >
-              <Text style={[condensed, { fontSize: 16, color: now ? t.accText : t.ink }]}>{c.day}</Text>
+              <Text style={[condensed, { fontSize: 15, color: now ? t.accText : t.ink }]}>{c.day}</Text>
               {c.match && <Text style={styles.cellIcon}>⚽</Text>}
               {c.window && <View style={[styles.dot, { backgroundColor: t.good }]} />}
             </View>
           );
         })}
       </View>
-      <Text style={{ color: t.mut, fontSize: 13, marginBottom: 12 }}>
-        ⚽ jogo · <Text style={{ color: t.good }}>●</Text> janela de transferências
-      </Text>
-
-      <View style={styles.dtop}>
-        <Text style={{ color: t.mut }}>Dia</Text>
-        <Text style={[condensed, { fontSize: 54, color: t.acc, minWidth: 64, textAlign: 'center' }]}>{shownDay}</Text>
-        <Text style={{ color: t.mut }}>de 20</Text>
-      </View>
-
-      <View style={{ borderTopWidth: 1, borderTopColor: t.line, paddingTop: 8, marginBottom: 12 }}>
-        <Text style={{ color: t.ink, fontWeight: '700' }}>Agenda do dia {cal.nextDay}</Text>
-        {cal.agenda.map((a, i) => (
-          <Animated.View
-            key={a.title}
-            style={[
-              styles.ai,
-              { opacity: agenda[i], transform: [{ translateY: agenda[i].interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }] },
-            ]}
-          >
-            <Text style={{ fontSize: 20, width: 26, textAlign: 'center' }}>{a.icon}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: t.ink, fontWeight: '700' }}>{a.title}</Text>
-              <Text style={{ color: t.mut, fontSize: 14 }}>{a.detail}</Text>
-            </View>
-          </Animated.View>
-        ))}
-      </View>
-
-      <Btn primary label={`Começar o dia ${cal.nextDay}`} onPress={onNext} busy={busy} />
-      <View style={{ alignItems: 'center', marginTop: 10 }}>
-        <Btn small label={skip ? 'Animação: desligada' : 'Animação: ligada'} onPress={toggleSkip} />
+      <View style={styles.legend}>
+        <Text style={{ color: t.mut, fontSize: 12, fontFamily: font.medium }}>
+          ⚽ jogo · <Text style={{ color: t.good }}>●</Text> janela de transferências
+        </Text>
+        <Pressable onPress={toggleSkip} hitSlop={8}>
+          <Text style={{ color: t.acc, fontSize: 12, fontFamily: font.semibold }}>{skip ? 'Animação: desligada' : 'Animação: ligada'}</Text>
+        </Pressable>
       </View>
     </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  strip: { borderWidth: 1.5, borderRadius: 8, marginVertical: 10, height: 84, overflow: 'hidden' },
+  strip: { borderWidth: 1, borderRadius: 14, marginTop: 4, marginBottom: 14, height: 84, overflow: 'hidden' },
   track: { flexDirection: 'row', position: 'absolute', left: 0, top: 0, height: '100%' },
-  dc: { width: CHIP, alignItems: 'center', justifyContent: 'center' },
-  dcSmall: { fontSize: 11, textTransform: 'uppercase' },
-  dcIcon: { position: 'absolute', top: 2, right: 4, fontSize: 11 },
-  ptr: { position: 'absolute', left: '50%', top: 0, width: 2, height: 6, marginLeft: -1 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', marginVertical: 10, marginHorizontal: -3 },
-  cell: { width: '18%', marginHorizontal: '1%', marginVertical: 3, aspectRatio: 1.25, borderWidth: 1.5, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  cellIcon: { position: 'absolute', top: -1, right: 2, fontSize: 11 },
-  dot: { position: 'absolute', left: 4, bottom: 4, width: 6, height: 6, borderRadius: 3 },
-  dtop: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 10, marginTop: 4, marginBottom: 10 },
-  ai: { flexDirection: 'row', gap: 10, alignItems: 'center', paddingVertical: 6 },
+  dc: { width: CHIP, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  dcSmall: { fontSize: 11, textTransform: 'uppercase', fontFamily: font.bold },
+  dcIcon: { position: 'absolute', top: 3, right: 4, fontSize: 11 },
+  ptr: { position: 'absolute', left: '50%', top: 0, marginLeft: -6, width: 0, height: 0, borderLeftWidth: 6, borderRightWidth: 6, borderTopWidth: 7, borderLeftColor: 'transparent', borderRightColor: 'transparent' },
+  section: { fontFamily: font.bold, fontSize: 11, letterSpacing: 1.2, marginTop: 6, marginBottom: 6 },
+  ai: { flexDirection: 'row', gap: 10, alignItems: 'center', padding: 10, borderWidth: 1, borderRadius: 12, marginBottom: 6 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -2 },
+  cell: { width: '18%', marginHorizontal: '1%', marginVertical: 2, aspectRatio: 1.7, borderWidth: 1, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  cellIcon: { position: 'absolute', top: 0, right: 2, fontSize: 9 },
+  dot: { position: 'absolute', left: 4, bottom: 3, width: 5, height: 5, borderRadius: 3 },
+  legend: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, flexWrap: 'wrap', gap: 6 },
 });

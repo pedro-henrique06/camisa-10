@@ -1,51 +1,92 @@
+import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useState } from 'react';
 import { Share, StyleSheet, Text, View } from 'react-native';
-import Svg, { Rect } from 'react-native-svg';
-import { useState } from 'react';
 
 import type { EventView, FinalView, MarketView, ResultView, SeasonView } from '@/api/types';
-import { Armband, Badge, D20, GoldenBall, Pitch, Trophy } from '@/components/art';
-import { Btn, Card, Chip, H1, H2, money, P, Row } from '@/components/ui';
-import { condensed, useTheme } from '@/theme';
+import { Armband, Badge, Confetti, D20, GoldenBall, PenaltyGoal, Pitch, Trophy } from '@/components/art';
+import { Btn, Card, Chip, Eyebrow, FadeIn, H1, H2, haptic, money, P, PressableScale, Row, Stat } from '@/components/ui';
+import { chanceColor, condensed, font, useTheme } from '@/theme';
 
 type Act = { busy: boolean };
+const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
-/** Barra com o nome da competição (compBar). */
+/** Faixa com o nome da competição. */
 function Competition({ c }: { c: NonNullable<EventView['competition']> }) {
   const t = useTheme();
-  const slot = (label: string) => (
-    <View style={[styles.slot, { borderColor: t.mut }]}>
-      <Text style={{ fontSize: 9, color: t.mut, textTransform: 'uppercase' }}>{label}</Text>
-    </View>
-  );
   return (
-    <View style={[styles.comp, { borderColor: t.line }]}>
-      {slot('emblema')}
-      <View style={{ flex: 1, alignItems: 'center' }}>
-        <Text style={[condensed, { fontSize: 18, color: t.ink, textTransform: 'uppercase', textAlign: 'center' }]}>{c.name}</Text>
-        <Text style={{ color: t.mut, fontSize: 13 }}>{c.subtitle}</Text>
+    <LinearGradient colors={[t.accSoft, 'transparent']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.comp, { borderColor: t.accSoft }]}>
+      <Text style={{ fontSize: 22 }}>🏟️</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={[condensed, { fontSize: 18, color: t.ink, textTransform: 'uppercase', letterSpacing: 0.5 }]}>{c.name}</Text>
+        <Text style={{ color: t.mut, fontSize: 13, fontFamily: font.medium }}>{c.subtitle}</Text>
       </View>
-      {slot('taça')}
-    </View>
+      <View style={[styles.live, { backgroundColor: t.bad }]}>
+        <Text style={{ color: '#fff', fontFamily: font.bold, fontSize: 10, letterSpacing: 1 }}>AO VIVO</Text>
+      </View>
+    </LinearGradient>
   );
 }
 
-/** Evento com opções (show) ou cobrança de pênalti (showPen). */
+/** Uma opção do evento, como card com letra e chance de sucesso. */
+function Option({ letter, label, check, onPress, disabled, delay }: {
+  letter: string;
+  label: string;
+  check: EventView['options'][number]['check'];
+  onPress: () => void;
+  disabled: boolean;
+  delay: number;
+}) {
+  const t = useTheme();
+  const c = check ? chanceColor(t, check.chance) : t.acc;
+  return (
+    <FadeIn delay={delay}>
+      <PressableScale onPress={onPress} disabled={disabled} accessibilityLabel={label} style={[styles.option, { backgroundColor: t.cardHi, borderColor: t.lineStrong }]}>
+        <View style={[styles.letter, { backgroundColor: t.accSoft }]}>
+          <Text style={[condensed, { color: t.acc, fontSize: 18 }]}>{letter}</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: t.ink, fontSize: 17, lineHeight: 22, fontFamily: font.semibold }}>{label}</Text>
+          {check && (
+            <View style={styles.checkRow}>
+              <Text style={{ color: t.mut, fontSize: 13, fontFamily: font.medium }}>
+                🎲 {check.attributeName} {check.value} · dif. {check.difficulty}
+              </Text>
+              <View style={[styles.pct, { backgroundColor: c + '22', borderColor: c }]}>
+                <Text style={{ color: c, fontFamily: font.bold, fontSize: 12 }}>{check.chance}%</Text>
+              </View>
+            </View>
+          )}
+          {check && (
+            <View style={{ height: 3, backgroundColor: t.line, borderRadius: 2, marginTop: 6, overflow: 'hidden' }}>
+              <View style={{ width: `${check.chance}%`, height: '100%', backgroundColor: c }} />
+            </View>
+          )}
+        </View>
+        <Text style={{ color: t.mut, fontSize: 20 }}>›</Text>
+      </PressableScale>
+    </FadeIn>
+  );
+}
+
+/** Evento com opções ou cobrança de pênalti. */
 export function EventCard({ ev, onChoose, busy }: { ev: EventView; onChoose: (i: number) => void } & Act) {
   const t = useTheme();
+  const eyebrow = ev.isPenalty ? 'Pênalti' : ev.competition ? 'Lance da partida' : ev.routine ? 'Treino' : 'Sua decisão';
   return (
     <Card>
       {ev.competition && <Competition c={ev.competition} />}
       {ev.routine && (
-        <View style={[styles.tpbar, { borderColor: t.line }]}>
+        <View style={[styles.tpbar, { backgroundColor: t.cardHi, borderColor: t.line }]}>
           <Badge badge={ev.routine.clubBadge} size={26} />
           <View style={{ flex: 1 }}>
-            <Text style={{ color: t.ink, fontWeight: '700' }}>Rotina do {ev.routine.club}</Text>
-            <Text style={{ color: t.mut, fontSize: 13 }}>
-              {ev.routine.sessions === 2 ? 'Dois períodos: manhã e tarde' : 'Período único: manhã'} · foco do clube: {ev.routine.focusName}
+            <Text style={{ color: t.ink, fontFamily: font.bold }}>Rotina do {ev.routine.club}</Text>
+            <Text style={{ color: t.mut, fontSize: 13, fontFamily: font.regular }}>
+              {ev.routine.sessions === 2 ? 'Dois períodos: manhã e tarde' : 'Período único: manhã'} · foco: {ev.routine.focusName}
             </Text>
           </View>
         </View>
       )}
+      <Eyebrow>{eyebrow}</Eyebrow>
       <H2>{ev.title}</H2>
       {ev.visual === 'trophy' && <Trophy />}
       {ev.visual === 'ball' && <GoldenBall />}
@@ -53,187 +94,212 @@ export function EventCard({ ev, onChoose, busy }: { ev: EventView; onChoose: (i:
 
       {ev.isPenalty && ev.penaltyZones ? (
         <>
-          <View style={{ alignItems: 'center', marginVertical: 12 }}>
-            <Svg viewBox="0 0 300 130" width="100%" height={150} style={{ maxWidth: 340 }}>
-              {ev.penaltyZones.map((label, i) => (
-                <Rect
-                  key={label}
-                  x={5 + (i % 3) * 96.7}
-                  y={5 + (i > 2 ? 60 : 0)}
-                  width={96.7}
-                  height={60}
-                  fill={t.acc}
-                  fillOpacity={0.08}
-                  stroke={t.line}
-                  strokeWidth={2}
-                  onPress={busy ? undefined : () => onChoose(i)}
-                />
-              ))}
-            </Svg>
-          </View>
+          <PenaltyGoal zones={ev.penaltyZones} onShoot={onChoose} disabled={busy} />
           <P muted style={{ textAlign: 'center' }}>
-            Toque no ponto do gol · Chute {ev.shotSkill}
+            Toque no canto do gol · seu Chute: {ev.shotSkill}
           </P>
         </>
       ) : (
-        ev.options.map((o, i) => (
-          <Btn key={i} onPress={() => onChoose(i)} disabled={busy}>
-            <Text style={{ color: t.ink, fontSize: 17, fontWeight: '600' }}>{o.label}</Text>
-            {o.check && (
-              <Text style={{ color: t.mut, fontSize: 13, marginTop: 2 }}>
-                🎲 {o.check.attributeName} {o.check.value} · dificuldade {o.check.difficulty} · {o.check.chance}% de chance
-              </Text>
-            )}
-          </Btn>
-        ))
+        <View style={{ marginTop: 4 }}>
+          {ev.options.map((o, i) => (
+            <Option key={i} letter={LETTERS[i]} label={o.label} check={o.check} onPress={() => onChoose(i)} disabled={busy} delay={120 + i * 70} />
+          ))}
+        </View>
       )}
     </Card>
   );
 }
 
-/** Resultado da escolha, com o dado quando houve teste (pick + dice). */
-export function ResultCard({ r, onNext, busy }: { r: ResultView; onNext: () => void } & Act) {
+/** Resultado da escolha: faixa de sucesso/falha, dado e efeitos. */
+export function ResultCard({ r }: { r: ResultView }) {
   const t = useTheme();
   const d = r.dice;
+  const c = r.success ? t.good : t.bad;
+  useEffect(() => {
+    if (r.success) haptic.success();
+    else haptic.fail();
+  }, [r.success]);
+  const big = r.anim === 'capt' || r.anim === 'trophy' || r.anim === 'ball';
   return (
-    <Card>
-      <H2>{r.title}</H2>
-      <P muted>Você escolheu: {r.chosen}</P>
+    <Card accent={c}>
+      {r.success && big && <Confetti />}
+      <View style={[styles.banner, { backgroundColor: r.success ? t.goodSoft : t.badSoft }]}>
+        <Text style={{ fontSize: 22 }}>{r.success ? '✅' : '❌'}</Text>
+        <Text style={[condensed, { color: c, fontSize: 22, letterSpacing: 0.5, textTransform: 'uppercase' }]}>
+          {d?.roll === 20 ? 'Crítico!' : d?.roll === 1 ? 'Falha crítica' : r.success ? 'Deu certo' : 'Não deu'}
+        </Text>
+      </View>
+      <Eyebrow color={t.mut}>{r.title}</Eyebrow>
+      <Text style={{ color: t.ink, fontFamily: font.semibold, fontSize: 16 }}>“{r.chosen}”</Text>
       {d && (
-        <View style={[styles.dice, { borderColor: r.success ? t.good : t.bad }]}>
-          <D20 value={d.roll} />
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: t.ink }}>
-              <Text style={{ fontWeight: '700' }}>
+        <FadeIn delay={100}>
+          <View style={[styles.dice, { borderColor: c, backgroundColor: t.cardHi }]}>
+            <D20 value={d.roll} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: t.ink, fontFamily: font.bold }}>
                 {d.attributeName} {d.value}
-              </Text>{' '}
-              · dado {d.roll} {d.modifier >= 0 ? '+' : '-'} {Math.abs(d.modifier)} = {d.total} contra dificuldade {d.difficulty}
-            </Text>
-            <Text style={{ color: t.ink, fontWeight: '700' }}>
-              {d.roll === 20 ? 'Crítico! ' : d.roll === 1 ? 'Falha crítica. ' : ''}
-              {r.success ? 'Sucesso' : 'Falha'}
-            </Text>
+              </Text>
+              <Text style={{ color: t.mut, fontFamily: font.medium }}>
+                dado {d.roll} {d.modifier >= 0 ? '+' : '−'} {Math.abs(d.modifier)} ={' '}
+                <Text style={{ color: c, fontFamily: font.bold }}>{d.total}</Text> · precisava de {d.difficulty}
+              </Text>
+            </View>
           </View>
-        </View>
+        </FadeIn>
       )}
-      <P>{r.text}</P>
+      <P style={{ fontSize: 18, marginTop: 10 }}>{r.text}</P>
       {r.anim === 'capt' && <Armband />}
       {r.anim === 'trophy' && <Trophy />}
       {r.anim === 'ball' && <GoldenBall />}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-        {r.chips.map((c, i) => (
-          <Chip key={i} text={c.text} up={c.up} />
+        {r.chips.map((ch, i) => (
+          <Chip key={i} text={ch.text} up={ch.up} delay={250 + i * 90} />
         ))}
       </View>
-      <Btn primary label="Continuar" onPress={onNext} busy={busy} />
     </Card>
   );
 }
 
-/** Janela de transferências (market). */
+const TIER_STARS = (fee: number) => (fee >= 120 ? 5 : fee >= 70 ? 4 : fee >= 35 ? 3 : fee >= 15 ? 2 : 1);
+
+/** Janela de transferências. */
 export function MarketCard({ m, onChoose, onStay, busy }: { m: MarketView; onChoose: (i: number) => void; onStay: () => void } & Act) {
   const t = useTheme();
   return (
     <Card>
+      <Eyebrow>Mercado</Eyebrow>
       <H2>Janela de transferências</H2>
-      <P>{m.intro}</P>
-      {m.offers.map((o) => (
-        <Btn key={o.index} onPress={() => onChoose(o.index)} disabled={busy}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Badge badge={o.clubBadge} size={22} />
-            <Text style={{ color: t.ink, fontSize: 17, fontWeight: '700', flexShrink: 1 }}>
-              {o.club} <Text style={{ fontWeight: '400' }}>· {o.countryFlag} {o.country}</Text>
+      <P muted>{m.intro}</P>
+      {m.offers.map((o, i) => (
+        <FadeIn key={o.index} delay={100 + i * 80}>
+          <PressableScale onPress={() => onChoose(o.index)} disabled={busy} style={[styles.offer, { backgroundColor: t.cardHi, borderColor: t.lineStrong }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Badge badge={o.clubBadge} size={44} />
+              <View style={{ flex: 1 }}>
+                <Text style={[condensed, { color: t.ink, fontSize: 22 }]}>{o.club}</Text>
+                <Text style={{ color: t.mut, fontFamily: font.medium }}>
+                  {o.countryFlag} {o.country} · {'★'.repeat(TIER_STARS(o.fee))}
+                </Text>
+              </View>
+              <Text style={{ color: t.acc, fontFamily: font.bold }}>Assinar ›</Text>
+            </View>
+            <View style={styles.offerStats}>
+              <OfferStat label="Salário" value={`${o.salary} mil`} />
+              <OfferStat label="Luvas" value={`${o.signingBonus} mi`} />
+              <OfferStat label="Transferência" value={`${o.fee} mi`} />
+            </View>
+            <Text style={{ color: t.mut, fontSize: 13, fontFamily: font.regular }}>
+              Rotina: {o.sessions === 2 ? 'treino em 2 períodos' : 'período único'} · foco {o.focusName}
             </Text>
-          </View>
-          <Text style={{ color: t.mut, fontSize: 13, marginTop: 4 }}>
-            Luvas R$ {o.signingBonus} mi · salário R$ {o.salary} mil/mês{'\n'}Valor da transferência R$ {o.fee} mi{'\n'}Rotina:{' '}
-            {o.sessions === 2 ? 'treino em 2 períodos' : 'treino em período único'} · foco {o.focusName}
-          </Text>
-        </Btn>
+          </PressableScale>
+        </FadeIn>
       ))}
-      <Btn label={m.stayLabel} onPress={onStay} disabled={busy} />
+      <Btn label={m.stayLabel} onPress={onStay} disabled={busy} icon={m.mode === 'bt' ? '↩' : '✍'} />
     </Card>
+  );
+}
+
+function OfferStat({ label, value }: { label: string; value: string }) {
+  const t = useTheme();
+  return (
+    <View style={{ flex: 1 }}>
+      <Text style={{ color: t.mut, fontSize: 11, fontFamily: font.bold, textTransform: 'uppercase' }}>{label}</Text>
+      <Text style={{ color: t.ink, fontFamily: font.display, fontSize: 18 }}>R$ {value}</Text>
+    </View>
   );
 }
 
 export function SwapCard({ current, suggested, onChoose, busy }: { current: string; suggested: string; onChoose: (i: number) => void } & Act) {
   return (
     <Card>
-      <H2>O treinador quer te mudar de posição</H2>
+      <Eyebrow>Conversa com o treinador</Eyebrow>
+      <H2>Mudança de posição?</H2>
       <P>
         “Acho que você rende mais de {suggested}.” Hoje você joga de {current}.
       </P>
       <Pitch selected={suggested} current={current} />
-      <P muted>Linha tracejada: posição atual. Amarelo: sugestão.</P>
-      <Btn primary label="Aceitar a mudança" onPress={() => onChoose(0)} busy={busy} />
+      <P muted style={{ textAlign: 'center' }}>
+        Tracejado: posição atual · Amarelo: sugestão
+      </P>
+      <Btn primary label={`Aceitar: jogar de ${suggested}`} onPress={() => onChoose(0)} busy={busy} />
       <Btn label={`Prefiro continuar de ${current}`} onPress={() => onChoose(1)} disabled={busy} />
     </Card>
   );
 }
 
-export function PromotionCard({ club, onNext, busy }: { club: string; onNext: () => void } & Act) {
+export function PromotionCard({ club }: { club: string }) {
   return (
     <Card>
+      <Trophy />
+      <Eyebrow>Novo capítulo</Eyebrow>
       <H2>Você foi promovido!</H2>
-      <P>O {club} chama você para o time profissional.</P>
-      <Btn primary label="Começar a carreira profissional" onPress={onNext} busy={busy} />
+      <P>O {club} chama você para o time profissional. Agora tem contrato, salário e torcida cobrando.</P>
     </Card>
   );
 }
 
-/** Balanço da temporada (endSeason). */
-export function SeasonCard({ s, onNext, busy }: { s: SeasonView; onNext: () => void } & Act) {
+/** Balanço da temporada. */
+export function SeasonCard({ s }: { s: SeasonView }) {
+  const t = useTheme();
   const r = s.report;
+  const ratingColor = r.rating >= 7.5 ? t.good : r.rating < 6 ? t.bad : t.acc;
+  const diff = r.overallAfter - r.overallBefore;
   return (
-    <Card>
-      <H2>
-        Temporada {r.season} · {r.club}
-      </H2>
-      <Row label="Jogos" value={r.games} />
-      <Row label="Gols" value={`${r.goals} · total ${s.totalGoals}`} />
-      <Row label="Assistências" value={`${r.assists} · total ${s.totalAssists}`} />
-      <Row label="Gols + assistências" value={r.goals + r.assists} />
-      <P muted>
-        Nos lances decisivos que você jogou: {r.decisiveGoals} gols e {r.decisiveAssists} assistências.
-      </P>
-      <Row label="Nota média" value={r.rating.toFixed(1)} />
-      <Row label="Evolução da habilidade" value={`${r.overallBefore} → ${r.overallAfter}`} />
+    <Card accent={r.title ? t.acc : undefined}>
+      {r.title && <Trophy />}
+      <Eyebrow>{r.title ? 'Campeão!' : `Temporada ${r.season}`}</Eyebrow>
+      <H2>{r.club}</H2>
+      <View style={styles.statGrid}>
+        <Stat value={r.rating.toFixed(1)} label="Nota" color={ratingColor} />
+        <Stat value={r.games} label="Jogos" />
+        <Stat value={r.goals} label="Gols" />
+        <Stat value={r.assists} label="Assist." />
+      </View>
+      <View style={[styles.evo, { backgroundColor: t.cardHi, borderColor: t.line }]}>
+        <Text style={{ color: t.mut, fontFamily: font.medium }}>Overall</Text>
+        <Text style={[condensed, { color: t.ink, fontSize: 26 }]}>
+          {r.overallBefore} → {r.overallAfter}{' '}
+          <Text style={{ color: diff >= 0 ? t.good : t.bad, fontSize: 18 }}>
+            ({diff >= 0 ? '+' : ''}
+            {diff})
+          </Text>
+        </Text>
+      </View>
+      <View style={[styles.news, { backgroundColor: t.accSoft }]}>
+        <Text style={{ color: t.ink, fontFamily: font.bold, fontSize: 16 }}>📰 {r.headline}</Text>
+      </View>
+      <Row label="Total na carreira" value={`${s.totalGoals} gols · ${s.totalAssists} assist.`} />
+      <Row label="Lances decisivos" value={`${r.decisiveGoals} gols · ${r.decisiveAssists} assist.`} />
       <Row label="Salário" value={`R$ ${r.salary} mil/mês`} />
-      <Row label="Ganho líquido" value={`R$ ${r.net} mi`} />
+      <Row label="Ganho líquido" value={`R$ ${r.net} mi`} highlight />
       {r.commission > 0 && <Row label="Comissão do empresário" value={`R$ ${r.commission} mi`} />}
       {r.releaseClause > 0 && <Row label="Multa rescisória" value={`R$ ${r.releaseClause} mi`} />}
-      <P muted>📰 {r.headline}</P>
-      <P muted>
-        {r.era} · Rival {s.rival} ({s.rivalClub}): habilidade {s.rivalOverall}, {s.rivalGoals} gols, {s.rivalTitles} títulos · seu perfil:{' '}
-        {r.profile}
-      </P>
-      {r.title ? (
-        <>
-          <Trophy />
-          <P>Seu time foi campeão!</P>
-        </>
-      ) : (
-        <P>Sem título nesta temporada.</P>
-      )}
-      <Btn primary label="Próxima temporada" onPress={onNext} busy={busy} />
+      <Row label="Fase da carreira" value={`${r.era} · perfil ${r.profile}`} />
+      <View style={[styles.rival, { borderColor: t.line }]}>
+        <Text style={{ color: t.mut, fontFamily: font.bold, fontSize: 11, letterSpacing: 1 }}>SEU RIVAL</Text>
+        <Text style={{ color: t.ink, fontFamily: font.semibold }}>
+          {s.rival} ({s.rivalClub}) · overall {s.rivalOverall} · {s.rivalGoals} gols · {s.rivalTitles} títulos
+        </Text>
+      </View>
     </Card>
   );
 }
 
-export function DecisionCard({ age, onContinue, onRetire, busy }: { age: number; onContinue: () => void; onRetire: () => void } & Act) {
+export function DecisionCard({ age }: { age: number }) {
   return (
     <Card>
+      <Eyebrow>Fim de carreira?</Eyebrow>
       <H2>Hora de decidir</H2>
       <P>{age} anos. O corpo cobra a conta, mas ainda tem bola no pé.</P>
-      <Btn label="Continuar jogando" onPress={onContinue} disabled={busy} />
-      <Btn label="Pendurar as chuteiras" onPress={onRetire} disabled={busy} />
     </Card>
   );
 }
 
-/** Fim de carreira (fim). */
+/** Fim de carreira. */
 export function FinalScreen({ f, onHome }: { f: FinalView; onHome: () => void }) {
+  const t = useTheme();
   const [shared, setShared] = useState<string | null>(null);
+  const legend = /Lenda|Ídolo/.test(f.title);
   const share = async () => {
     try {
       await Share.share({ message: f.shareText });
@@ -244,20 +310,31 @@ export function FinalScreen({ f, onHome }: { f: FinalView; onHome: () => void })
   };
   return (
     <View>
-      <H1>{f.title}</H1>
-      <P muted>{f.subtitle}</P>
-      <Card>
+      {legend && <Confetti />}
+      <FadeIn>
+        <View style={{ alignItems: 'center', marginTop: 12 }}>
+          {legend ? <Trophy /> : <Text style={{ fontSize: 56 }}>👟</Text>}
+          <Eyebrow>Fim de carreira</Eyebrow>
+          <H1 style={{ textAlign: 'center', color: legend ? t.acc : t.ink }}>{f.title}</H1>
+          <P muted style={{ textAlign: 'center' }}>
+            {f.subtitle}
+          </P>
+        </View>
+      </FadeIn>
+      <Card style={{ marginTop: 12 }}>
+        <View style={styles.statGrid}>
+          <Stat value={f.goals} label="Gols" />
+          <Stat value={f.assists} label="Assist." />
+          <Stat value={f.titles} label="Títulos" color={t.acc} />
+          <Stat value={f.ballons} label="Bola de Ouro" />
+        </View>
         <Row label="Jogos" value={f.games} />
-        <Row label="Gols" value={f.goals} />
-        <Row label="Assistências" value={f.assists} />
-        <Row label="Títulos" value={f.titles} />
-        <Row label="Melhor do mundo" value={f.ballons} />
-        <Row label="Patrimônio" value={`R$ ${money(f.money)} mi`} />
+        <Row label="Patrimônio" value={`R$ ${money(f.money)} mi`} highlight />
         <Row label="Títulos com a seleção" value={f.nationalTitles} />
         <Row label="Perfil" value={f.profile} />
         <Row label={`Rival ${f.rival}`} value={`${f.rivalTitles} títulos`} />
         <P muted>📰 {f.headlines.join(' · ')}</P>
-        <Btn label={shared ?? 'Compartilhar resumo'} onPress={share} />
+        <Btn label={shared ?? 'Compartilhar resumo'} icon="📤" onPress={share} />
         <Btn primary label="Nova carreira" onPress={onHome} />
       </Card>
     </View>
@@ -265,8 +342,19 @@ export function FinalScreen({ f, onHome }: { f: FinalView; onHome: () => void })
 }
 
 const styles = StyleSheet.create({
-  comp: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 8, marginBottom: 12, borderWidth: 1, borderRadius: 10 },
-  slot: { width: 42, height: 42, borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 8, alignItems: 'center', justifyContent: 'center', opacity: 0.55 },
-  tpbar: { flexDirection: 'row', gap: 10, alignItems: 'center', padding: 8, marginBottom: 12, borderWidth: 1, borderStyle: 'dashed', borderRadius: 8 },
-  dice: { flexDirection: 'row', gap: 12, alignItems: 'center', borderWidth: 1.5, borderRadius: 8, padding: 10, marginVertical: 8 },
+  comp: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, marginBottom: 14, borderWidth: 1, borderRadius: 12 },
+  live: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  tpbar: { flexDirection: 'row', gap: 10, alignItems: 'center', padding: 10, marginBottom: 14, borderWidth: 1, borderRadius: 12 },
+  option: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 14, padding: 14, marginTop: 10 },
+  letter: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  checkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, gap: 8 },
+  pct: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 1 },
+  banner: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12, padding: 10, marginBottom: 12 },
+  dice: { flexDirection: 'row', gap: 12, alignItems: 'center', borderWidth: 1.5, borderRadius: 14, padding: 10, marginTop: 12 },
+  offer: { borderWidth: 1, borderRadius: 16, padding: 14, marginTop: 10, gap: 10 },
+  offerStats: { flexDirection: 'row', gap: 8 },
+  statGrid: { flexDirection: 'row', gap: 8, marginVertical: 8, flexWrap: 'wrap' },
+  evo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderRadius: 14, padding: 12, marginVertical: 6 },
+  news: { borderRadius: 12, padding: 12, marginVertical: 8 },
+  rival: { borderWidth: 1, borderStyle: 'dashed', borderRadius: 12, padding: 10, marginTop: 12, gap: 2 },
 });
