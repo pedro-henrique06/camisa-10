@@ -45,6 +45,11 @@ export interface HudView {
   club: string;
   clubBadge: Badge;
   clubLine: string;
+  /** Liga atual (nula na base). */
+  league: string | null;
+  /** "A", "B" ou "C" (nula na base). */
+  division: string | null;
+  clubCountryFlag: string;
   captain: boolean;
   base: boolean;
   contract: number;
@@ -128,6 +133,7 @@ export interface CalendarView {
 
 export interface OfferView {
   index: number;
+  clubId: string | null;
   club: string;
   clubBadge: Badge;
   country: string;
@@ -137,6 +143,8 @@ export interface OfferView {
   fee: number;
   sessions: number;
   focusName: string;
+  league: string | null;
+  division: string | null;
 }
 
 export interface MarketView {
@@ -166,6 +174,12 @@ export interface SeasonReport {
   era: string;
   profile: string;
   title: boolean;
+  leagueName: string | null;
+  rank: number;
+  leagueSize: number;
+  /** "up" (acesso), "down" (rebaixamento) ou nulo. */
+  movement: 'up' | 'down' | null;
+  table: { position: number; club: string; mine: boolean; zone: 'up' | 'down' | null }[];
 }
 
 export interface SeasonView {
@@ -231,8 +245,10 @@ export interface PositionOption {
 }
 
 export interface MetaView {
-  baseClubs: { name: string; tier: number; badge: Badge }[];
-  nations: { name: string; flag: string }[];
+  /** Clubes em destaque para começar rápido. */
+  baseClubs: { id: string; name: string; tier: number; badge: Badge }[];
+  /** As 211 seleções, da mais forte para a mais fraca. */
+  nations: { name: string; flag: string; confederation: string }[];
   positions: string[];
   /** Ausente em servidores antigos. */
   positionInfo?: PositionOption[];
@@ -247,4 +263,43 @@ export interface CareerSummary {
   status: 'Active' | 'Finished';
   finalTitle: string | null;
   updatedAt: string;
+}
+
+// ---------------------------------------------------------------- mundo
+
+export interface CountrySummary {
+  iso: string;
+  name: string;
+  flag: string;
+  confederation: string;
+  quality: number;
+  leagues: { division: number; letter: string; name: string; clubs: number }[];
+}
+
+export interface WorldClubView {
+  id: string;
+  name: string;
+  tier: number;
+  fictional: boolean;
+  badge: Badge;
+}
+
+export interface CountryView {
+  iso: string;
+  name: string;
+  flag: string;
+  confederation: string;
+  leagues: { division: number; letter: string; name: string; clubs: WorldClubView[] }[];
+}
+
+export interface ClubSearchResult {
+  id: string;
+  name: string;
+  country: string;
+  flag: string;
+  league: string;
+  letter: string;
+  tier: number;
+  fictional: boolean;
+  badge: Badge;
 }
