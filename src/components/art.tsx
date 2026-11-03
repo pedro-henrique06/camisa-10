@@ -4,6 +4,7 @@ import Svg, { Circle, Defs, LinearGradient as SvgGradient, Path, Rect, Stop, Tex
 
 import type { Badge as BadgeT } from '@/api/types';
 import { font, useTheme } from '@/theme';
+import { Celebration } from './Celebration';
 
 /** Escudo do clube com brilho. */
 export function Badge({ badge, size = 36 }: { badge: BadgeT; size?: number }) {
@@ -133,51 +134,24 @@ function Pop({ children }: { children: React.ReactNode }) {
   );
 }
 
-const CONFETTI = ['#f4c20d', '#ff7a70', '#7be495', '#6cabdd', '#ffffff'];
-
-export function Confetti() {
-  const [pieces] = useState(() =>
-    Array.from({ length: 30 }, (_, i) => ({
-      left: 2 + Math.random() * 94,
-      delay: Math.random() * 900,
-      color: CONFETTI[i % 5],
-      v: new Animated.Value(0),
-    })),
-  );
-  useEffect(() => {
-    pieces.forEach((p) =>
-      Animated.timing(p.v, { toValue: 1, duration: 2400, delay: p.delay, easing: Easing.in(Easing.quad), useNativeDriver: true }).start(),
-    );
-  }, [pieces]);
+/** Raios girando atrás de um troféu, mais a chuva de confete por cima do cartão. */
+function Glory({ size = 190 }: { size?: number }) {
   return (
-    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 0, zIndex: 5 }}>
-      {pieces.map((p, i) => (
-        <Animated.View
-          key={i}
-          style={{
-            position: 'absolute',
-            top: -6,
-            left: `${p.left}%`,
-            width: 7,
-            height: 12,
-            borderRadius: 2,
-            backgroundColor: p.color,
-            opacity: p.v.interpolate({ inputRange: [0, 0.01, 1], outputRange: [0, 1, 0] }),
-            transform: [
-              { translateY: p.v.interpolate({ inputRange: [0, 1], outputRange: [0, 220] }) },
-              { rotate: p.v.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '540deg'] }) },
-            ],
-          }}
-        />
-      ))}
-    </View>
+    <>
+      <View pointerEvents="none" style={{ position: 'absolute', alignSelf: 'center', top: '50%', width: size, height: size, marginTop: -size / 2 }}>
+        <Celebration kind="raios" loop />
+      </View>
+      <View pointerEvents="none" style={{ position: 'absolute', left: -24, right: -24, top: -60, height: 380 }}>
+        <Celebration kind="confete" />
+      </View>
+    </>
   );
 }
 
 export function Trophy() {
   return (
-    <View style={{ position: 'relative' }}>
-      <Confetti />
+    <View style={{ position: 'relative', paddingVertical: 10 }}>
+      <Glory />
       <Pop>
         <Svg viewBox="0 0 64 66" width={86} height={90}>
           <Path d="M16 6h32v18c0 10-7 17-16 17S16 34 16 24z" fill="#f4c20d" stroke="#b8890a" strokeWidth={2} />
@@ -194,8 +168,8 @@ export function Trophy() {
 /** Bola de Ouro. */
 export function GoldenBall() {
   return (
-    <View style={{ position: 'relative' }}>
-      <Confetti />
+    <View style={{ position: 'relative', paddingVertical: 10 }}>
+      <Glory />
       <Pop>
         <Svg viewBox="0 0 64 64" width={86} height={86}>
           <Circle cx={32} cy={30} r={24} fill="#f4c20d" stroke="#b8890a" strokeWidth={2} />
@@ -214,6 +188,10 @@ export function Armband() {
     Animated.timing(a, { toValue: 1, duration: 900, easing: Easing.out(Easing.back(2)), useNativeDriver: true }).start();
   }, [a]);
   return (
+    <View style={{ position: 'relative' }}>
+      <View pointerEvents="none" style={{ position: 'absolute', alignSelf: 'center', top: '50%', width: 170, height: 170, marginTop: -85 }}>
+        <Celebration kind="raios" loop />
+      </View>
     <Animated.View
       style={{
         alignItems: 'center',
@@ -232,6 +210,7 @@ export function Armband() {
         </SvgText>
       </Svg>
     </Animated.View>
+    </View>
   );
 }
 

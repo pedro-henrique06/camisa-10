@@ -4,6 +4,7 @@ import Svg, { Circle, Defs, G, Line, LinearGradient as SvgGradient, Path, Polygo
 
 import type { PenaltyShot } from '@/api/types';
 import { condensed, font, useTheme } from '@/theme';
+import { Celebration } from './Celebration';
 import { Btn, haptic } from './ui';
 
 /*
@@ -385,6 +386,7 @@ export function PenaltyReplay({ shot, onDone, still }: { shot: PenaltyShot; onDo
   const [after] = useState(() => new Animated.Value(start));
   const [net] = useState(() => new Animated.Value(still ? 1 : 0));
   const [label] = useState(() => new Animated.Value(start));
+  const [impact, setImpact] = useState(false);
 
   const target = zoneCenter(shot.zone);
   const col = shot.zone % 3;
@@ -417,6 +419,7 @@ export function PenaltyReplay({ shot, onDone, still }: { shot: PenaltyShot; onDo
       Animated.timing(fly, { toValue: 1, duration: 620, easing: Easing.out(Easing.quad), useNativeDriver: true }),
       Animated.timing(dive, { toValue: 1, duration: 480, delay: 120, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
     ]).start(() => {
+      setImpact(true);
       if (shot.outcome === 'goal') haptic.success();
       else haptic.fail();
       Animated.parallel([
@@ -487,6 +490,8 @@ export function PenaltyReplay({ shot, onDone, still }: { shot: PenaltyShot; onDo
         >
           <BallFigure />
         </Animated.View>
+        {/* fogos no gol */}
+        {impact && shot.outcome === 'goal' && <Celebration kind="fogos" />}
         {/* placar do lance */}
         <Animated.View
           pointerEvents="none"
