@@ -4,7 +4,7 @@ import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, Text, View 
 
 import type { CalendarView } from '@/api/types';
 import { Card, Eyebrow, H2 } from '@/components/ui';
-import { condensed, font, useTheme } from '@/theme';
+import { alpha, compColor, condensed, font, useTheme } from '@/theme';
 
 const CHIP = 56;
 const SKIP_KEY = 'c10.skip';
@@ -72,7 +72,7 @@ export function Calendar({ cal }: { cal: CalendarView }) {
 
   return (
     <Card>
-      <Eyebrow>{cal.intro.replace(' Quatro jogos, um a cada 5 dias.', '').replace(/\.$/, '')}</Eyebrow>
+      <Eyebrow>{cal.intro.split('. ')[0].replace(/\.$/, '')}</Eyebrow>
       <H2>Dia {shownDay > 0 ? shownDay : cal.nextDay} de 20</H2>
 
       <Pressable onPress={finish} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={[styles.strip, { borderColor: t.line, backgroundColor: t.cardHi }]}>
@@ -98,7 +98,9 @@ export function Calendar({ cal }: { cal: CalendarView }) {
           key={a.title}
           style={[
             styles.ai,
-            { backgroundColor: a.icon === '⚽' ? t.accSoft : t.cardHi, borderColor: a.icon === '⚽' ? t.acc : t.line },
+            a.kind
+              ? { backgroundColor: alpha(compColor(t, a.kind), a.title === 'Jogo' ? 0.2 : 0.08), borderColor: alpha(compColor(t, a.kind), a.title === 'Jogo' ? 0.9 : 0.4) }
+              : { backgroundColor: t.cardHi, borderColor: t.line },
             { opacity: agenda[i], transform: [{ translateX: agenda[i].interpolate({ inputRange: [0, 1], outputRange: [-14, 0] }) }] },
           ]}
         >
@@ -115,28 +117,52 @@ export function Calendar({ cal }: { cal: CalendarView }) {
         {cal.cells.map((c) => {
           const now = c.day === shownDay;
           const isDone = c.done || (done && c.day === cal.nextDay);
+          const col = c.kind ? compColor(t, c.kind) : null;
           return (
             <View
               key={c.day}
+              accessibilityLabel={`Dia ${c.day}${c.competition ? ', jogo: ' + c.competition : ''}${c.window ? ', janela de transferências' : ''}`}
               style={[
                 styles.cell,
                 {
-                  borderColor: now ? t.acc : c.match ? t.accSoft : t.line,
-                  backgroundColor: now ? t.acc : isDone ? t.goodSoft : 'transparent',
-                  opacity: isDone || now ? 1 : 0.6,
+                  borderColor: now ? t.acc : col ? alpha(col, 0.75) : t.line,
+                  backgroundColor: now ? t.acc : col ? alpha(col, 0.2) : 'transparent',
+                  opacity: now ? 1 : isDone ? 0.42 : 1,
                 },
               ]}
             >
               <Text style={[condensed, { fontSize: 15, color: now ? t.accText : t.ink }]}>{c.day}</Text>
-              {c.match && <Text style={styles.cellIcon}>⚽</Text>}
+              {c.match && <Text style={styles.cellIcon}>{c.kind === 'league' ? '⚽' : '🏆'}</Text>}
+              {col && <View style={[styles.bar, { backgroundColor: now ? t.accText : col }]} />}
               {c.window && <View style={[styles.dot, { backgroundColor: t.good }]} />}
+            </View>
+          );
+        })}
+      </View>
+
+      <View style={styles.comps}>
+        {cal.competitions.map((c) => {
+          const col = compColor(t, c.kind);
+          return (
+            <View key={c.kind} style={[styles.compRow, { borderColor: alpha(col, 0.35), backgroundColor: alpha(col, 0.08) }]}>
+              <View style={[styles.swatch, { backgroundColor: col }]} />
+              <Text
+                numberOfLines={1}
+                style={{ flex: 1, color: c.out ? t.mut : t.ink, fontFamily: font.bold, fontSize: 14, textDecorationLine: c.out ? 'line-through' : 'none' }}
+              >
+                {c.name}
+              </Text>
+              <Text style={{ color: c.champion ? t.acc : c.out ? t.bad : t.mut, fontFamily: font.semibold, fontSize: 12 }}>
+                {c.champion ? '🏆 ' : ''}
+                {c.status}
+              </Text>
             </View>
           );
         })}
       </View>
       <View style={styles.legend}>
         <Text style={{ color: t.mut, fontSize: 12, fontFamily: font.medium }}>
-          ⚽ jogo · <Text style={{ color: t.good }}>●</Text> janela de transferências
+          <Text style={{ color: t.good }}>●</Text> janela de transferências
         </Text>
         <Pressable onPress={toggleSkip} hitSlop={8}>
           <Text style={{ color: t.acc, fontSize: 12, fontFamily: font.semibold }}>{skip ? 'Animação: desligada' : 'Animação: ligada'}</Text>
@@ -158,6 +184,10 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -2 },
   cell: { width: '18%', marginHorizontal: '1%', marginVertical: 2, aspectRatio: 1.7, borderWidth: 1, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   cellIcon: { position: 'absolute', top: 0, right: 2, fontSize: 9 },
-  dot: { position: 'absolute', left: 4, bottom: 3, width: 5, height: 5, borderRadius: 3 },
+  dot: { position: 'absolute', left: 4, top: 4, width: 5, height: 5, borderRadius: 3 },
+  bar: { position: 'absolute', left: 6, right: 6, bottom: 3, height: 3, borderRadius: 2 },
+  comps: { gap: 6, marginTop: 10 },
+  compRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, paddingHorizontal: 10, borderWidth: 1, borderRadius: 10 },
+  swatch: { width: 10, height: 10, borderRadius: 3 },
   legend: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, flexWrap: 'wrap', gap: 6 },
 });

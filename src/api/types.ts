@@ -66,6 +66,8 @@ export interface HudView {
   seasonAssists: number;
   warnings: string[];
   canSearchClub: boolean;
+  /** Competição de cada dia da temporada (20 posições; nulo = sem jogo). */
+  matchDays?: (CompetitionKind | null)[];
 }
 
 export interface CheckView {
@@ -80,7 +82,7 @@ export interface EventView {
   id: string | null;
   title: string;
   text: string;
-  competition: { name: string; subtitle: string } | null;
+  competition: { name: string; subtitle: string; kind: CompetitionKind } | null;
   routine: { club: string; clubBadge: Badge; sessions: number; focus: string; focusName: string } | null;
   visual: 'trophy' | 'ball' | null;
   isPenalty: boolean;
@@ -124,12 +126,17 @@ export interface CalendarView {
   dayDone: number;
   nextDay: number;
   intro: string;
-  cells: { day: number; done: boolean; match: boolean; window: boolean }[];
+  cells: { day: number; done: boolean; match: boolean; window: boolean; kind: CompetitionKind | null; competition: string | null }[];
   strip: { offset: number; weekday: string; day: number; month: string; icon: string }[];
   stripFrom: number;
   stripTo: number;
-  agenda: { icon: string; title: string; detail: string }[];
+  agenda: { icon: string; title: string; detail: string; kind: CompetitionKind | null }[];
+  /** Legenda: competições da temporada e como cada uma está. */
+  competitions: { kind: CompetitionKind; name: string; status: string; out: boolean; champion: boolean; games: number }[];
 }
+
+/** league (liga), state (estadual), cup (copa nacional), continental ou national (seleção). */
+export type CompetitionKind = 'league' | 'state' | 'cup' | 'continental' | 'national';
 
 export interface OfferView {
   index: number;
@@ -180,6 +187,8 @@ export interface SeasonReport {
   /** "up" (acesso), "down" (rebaixamento) ou nulo. */
   movement: 'up' | 'down' | null;
   table: { position: number; club: string; mine: boolean; zone: 'up' | 'down' | null }[];
+  /** Copas da temporada (estadual, copa nacional, continental). */
+  cups?: { kind: CompetitionKind; name: string; result: string; champion: boolean }[];
 }
 
 export interface SeasonView {
