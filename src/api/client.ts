@@ -70,7 +70,18 @@ async function request<T>(path: string, init: RequestInit = {}, accept: number[]
   try {
     res = await fetch(API_URL + path, { ...init, headers });
   } catch {
-    throw new ApiError(`Não foi possível falar com o servidor (${API_URL}).`, 0);
+    // Site publicado sem EXPO_PUBLIC_API_URL: o app tenta o próprio computador (localhost).
+    const publishedWithoutApi =
+      Platform.OS === 'web' &&
+      /localhost|127\.0\.0\.1/.test(API_URL) &&
+      typeof window !== 'undefined' &&
+      !/^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
+    throw new ApiError(
+      publishedWithoutApi
+        ? 'O app não sabe o endereço do backend. Configure a variável EXPO_PUBLIC_API_URL no serviço do front e faça um novo deploy.'
+        : `Não foi possível falar com o servidor (${API_URL}).`,
+      0,
+    );
   }
   if (res.status === 204) return undefined as T;
   if (!res.ok && !accept.includes(res.status)) {
