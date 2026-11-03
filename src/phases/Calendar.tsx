@@ -7,6 +7,23 @@ import { Card, Eyebrow, H2 } from '@/components/ui';
 import { alpha, compColor, condensed, font, useTheme } from '@/theme';
 
 const CHIP = 56;
+const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+type Cell = CalendarView['cells'][number];
+
+/** Agrupa as datas da temporada por mês, na ordem do calendário. */
+function byMonth(cells: Cell[]) {
+  const groups: { key: string; month: number; label: string; cells: Cell[] }[] = [];
+  for (const c of cells) {
+    const month = c.month ?? Math.ceil(c.day / 5);
+    const last = groups[groups.length - 1];
+    if (last && last.month === month) last.cells.push(c);
+    else groups.push({ key: `${month}-${groups.length}`, month, label: c.monthLabel ?? '', cells: [c] });
+  }
+  return groups;
+}
+
+const dateOf = (c: Cell | undefined) => (c?.dayOfMonth && c.month ? `${c.dayOfMonth} de ${MONTHS[c.month - 1]}` : null);
 const SKIP_KEY = 'c10.skip';
 
 /** Calendário da temporada com a fita de datas deslizando até o próximo dia (calScreen). */
@@ -72,8 +89,11 @@ export function Calendar({ cal }: { cal: CalendarView }) {
 
   return (
     <Card>
-      <Eyebrow>{cal.intro.split('. ')[0].replace(/\.$/, '')}</Eyebrow>
-      <H2>Dia {shownDay > 0 ? shownDay : cal.nextDay} de 20</H2>
+      <Eyebrow>{cal.seasonSpan ?? cal.intro.split('. ')[0].replace(/\.$/, '')}</Eyebrow>
+      <H2>{dateOf(cal.cells.find((c) => c.day === (shownDay > 0 ? shownDay : cal.nextDay))) ?? `Dia ${shownDay > 0 ? shownDay : cal.nextDay}`}</H2>
+      <Text style={{ color: t.mut, fontFamily: font.medium, fontSize: 13, marginTop: -4, marginBottom: 4 }}>
+        Rodada {shownDay > 0 ? shownDay : cal.nextDay} de {cal.total ?? cal.cells.length}
+      </Text>
 
       <Pressable onPress={finish} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={[styles.strip, { borderColor: t.line, backgroundColor: t.cardHi }]}>
         <Animated.View style={[styles.track, { transform: [{ translateX: x }] }]}>
@@ -113,31 +133,38 @@ export function Calendar({ cal }: { cal: CalendarView }) {
       ))}
 
       <Text style={[styles.section, { color: t.mut }]}>TEMPORADA</Text>
-      <View style={styles.grid}>
-        {cal.cells.map((c) => {
-          const now = c.day === shownDay;
-          const isDone = c.done || (done && c.day === cal.nextDay);
-          const col = c.kind ? compColor(t, c.kind) : null;
-          return (
-            <View
-              key={c.day}
-              accessibilityLabel={`Dia ${c.day}${c.competition ? ', jogo: ' + c.competition : ''}${c.window ? ', janela de transferências' : ''}`}
-              style={[
-                styles.cell,
-                {
-                  borderColor: now ? t.acc : col ? alpha(col, 0.75) : t.line,
-                  backgroundColor: now ? t.acc : col ? alpha(col, 0.2) : 'transparent',
-                  opacity: now ? 1 : isDone ? 0.42 : 1,
-                },
-              ]}
-            >
-              <Text style={[condensed, { fontSize: 15, color: now ? t.accText : t.ink }]}>{c.day}</Text>
-              {c.match && <Text style={styles.cellIcon}>{c.kind === 'league' ? '⚽' : '🏆'}</Text>}
-              {col && <View style={[styles.bar, { backgroundColor: now ? t.accText : col }]} />}
-              {c.window && <View style={[styles.dot, { backgroundColor: t.good }]} />}
+      <View style={styles.months}>
+        {byMonth(cal.cells).map((g) => (
+          <View key={g.key} style={styles.monthRow}>
+            <Text style={[styles.monthLabel, { color: t.mut }]}>{g.label}</Text>
+            <View style={styles.monthCells}>
+              {g.cells.map((c) => {
+                const now = c.day === shownDay;
+                const isDone = c.done || (done && c.day === cal.nextDay);
+                const col = c.kind ? compColor(t, c.kind) : null;
+                return (
+                  <View
+                    key={c.day}
+                    accessibilityLabel={`${dateOf(c) ?? 'Dia ' + c.day}${c.competition ? ', jogo: ' + c.competition : ''}${c.window ? ', janela de transferências' : ''}`}
+                    style={[
+                      styles.cell,
+                      {
+                        borderColor: now ? t.acc : col ? alpha(col, 0.75) : t.line,
+                        backgroundColor: now ? t.acc : col ? alpha(col, 0.2) : 'transparent',
+                        opacity: now ? 1 : isDone ? 0.42 : 1,
+                      },
+                    ]}
+                  >
+                    <Text style={[condensed, { fontSize: 15, color: now ? t.accText : t.ink }]}>{c.dayOfMonth ?? c.day}</Text>
+                    {c.match && <Text style={styles.cellIcon}>{c.kind === 'league' ? '⚽' : '🏆'}</Text>}
+                    {col && <View style={[styles.bar, { backgroundColor: now ? t.accText : col }]} />}
+                    {c.window && <View style={[styles.dot, { backgroundColor: t.good }]} />}
+                  </View>
+                );
+              })}
             </View>
-          );
-        })}
+          </View>
+        ))}
       </View>
 
       <View style={styles.comps}>
@@ -181,8 +208,11 @@ const styles = StyleSheet.create({
   ptr: { position: 'absolute', left: '50%', top: 0, marginLeft: -6, width: 0, height: 0, borderLeftWidth: 6, borderRightWidth: 6, borderTopWidth: 7, borderLeftColor: 'transparent', borderRightColor: 'transparent' },
   section: { fontFamily: font.bold, fontSize: 11, letterSpacing: 1.2, marginTop: 6, marginBottom: 6 },
   ai: { flexDirection: 'row', gap: 10, alignItems: 'center', padding: 10, borderWidth: 1, borderRadius: 12, marginBottom: 6 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -2 },
-  cell: { width: '18%', marginHorizontal: '1%', marginVertical: 2, aspectRatio: 1.7, borderWidth: 1, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  months: { gap: 4 },
+  monthRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  monthLabel: { width: 34, fontFamily: font.bold, fontSize: 11, letterSpacing: 0.8, textTransform: 'uppercase' },
+  monthCells: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  cell: { width: 48, height: 34, borderWidth: 1, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   cellIcon: { position: 'absolute', top: 0, right: 2, fontSize: 9 },
   dot: { position: 'absolute', left: 4, top: 4, width: 5, height: 5, borderRadius: 3 },
   bar: { position: 'absolute', left: 6, right: 6, bottom: 3, height: 3, borderRadius: 2 },

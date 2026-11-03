@@ -84,7 +84,7 @@ export function Hud({ hud, onHistory, onSearchClub, busy, compact }: Props) {
           <Text style={{ color: t.ink, fontFamily: font.semibold, fontSize: 15 }}>
             <Text style={[condensed, { fontSize: 26, color: t.acc }]}>{hud.age}</Text> anos · {hud.position} · {hud.nationFlag}
           </Text>
-          <SeasonProgress day={hud.seasonDay} matchDays={hud.matchDays} />
+          <SeasonProgress day={hud.seasonDay} matchDays={hud.matchDays} date={hud.date} />
           <Text style={{ color: t.mut, fontFamily: font.medium, fontSize: 13 }}>
             ⚽ {hud.goals} gols · 🅰 {hud.assists} assist.
             {hud.seasonGoals + hud.seasonAssists > 0 ? ` · +${hud.seasonGoals + hud.seasonAssists} na temp.` : ''}
@@ -131,12 +131,13 @@ export function Hud({ hud, onHistory, onSearchClub, busy, compact }: Props) {
 }
 
 /** Progresso da temporada (20 dias), com os jogos na cor de cada competição. */
-function SeasonProgress({ day, matchDays }: { day: number; matchDays?: (CompetitionKind | null)[] }) {
+function SeasonProgress({ day, matchDays, date }: { day: number; matchDays?: (CompetitionKind | null)[]; date?: string | null }) {
+  const total = matchDays?.length ?? 20;
   const t = useTheme();
   return (
     <View>
       <View style={{ flexDirection: 'row', gap: 2 }}>
-        {Array.from({ length: 20 }, (_, i) => {
+        {Array.from({ length: total }, (_, i) => {
           const n = i + 1;
           const kind = matchDays ? matchDays[i] : n % 5 === 0 ? 'league' : null;
           const match = kind != null;
@@ -155,7 +156,7 @@ function SeasonProgress({ day, matchDays }: { day: number; matchDays?: (Competit
           );
         })}
       </View>
-      <Text style={{ color: t.mut, fontSize: 11, fontFamily: font.medium, marginTop: 2 }}>Temporada · dia {day} de 20</Text>
+      <Text style={{ color: t.mut, fontSize: 11, fontFamily: font.medium, marginTop: 2 }}>{date ? `${date} · rodada ${day} de ${total}` : `Temporada · rodada ${day} de ${total}`}</Text>
     </View>
   );
 }

@@ -7,6 +7,7 @@ import type { EventView, FinalView, MarketView, PositionOption, ResultView, Seas
 import { Armband, Badge, D20, GoldenBall, Trophy } from '@/components/art';
 import { Celebration } from '@/components/Celebration';
 import { PenaltyAim, PenaltyReplay } from '@/components/PenaltyScene';
+import { MatchPitch } from '@/components/MatchPitch';
 import { PositionPitch } from '@/components/PositionPitch';
 import { Btn, Card, Chip, Eyebrow, FadeIn, H1, H2, haptic, money, P, PressableScale, Row, Stat } from '@/components/ui';
 import { alpha, chanceColor, compColor, condensed, font, useTheme } from '@/theme';
@@ -77,9 +78,12 @@ function Option({ letter, label, check, onPress, disabled, delay }: {
 export function EventCard({ ev, onChoose, busy }: { ev: EventView; onChoose: (i: number, power?: number) => void } & Act) {
   const t = useTheme();
   const eyebrow = ev.isPenalty ? 'Pênalti' : ev.competition ? 'Lance da partida' : ev.routine ? 'Treino' : 'Sua decisão';
+  // Lance de partida: primeiro o jogo rola no campo com a narração; a decisão aparece no lance.
+  const [live, setLive] = useState(!!ev.match?.lines.length);
   return (
     <Card>
       {ev.competition && <Competition c={ev.competition} />}
+      {ev.match && ev.match.lines.length > 0 && <MatchPitch match={ev.match} onDone={() => setLive(false)} />}
       {ev.routine && (
         <View style={[styles.tpbar, { backgroundColor: t.cardHi, borderColor: t.line }]}>
           <Badge badge={ev.routine.clubBadge} size={26} />
@@ -91,13 +95,19 @@ export function EventCard({ ev, onChoose, busy }: { ev: EventView; onChoose: (i:
           </View>
         </View>
       )}
-      <Eyebrow>{eyebrow}</Eyebrow>
-      <H2>{ev.title}</H2>
-      {ev.visual === 'trophy' && <Trophy />}
-      {ev.visual === 'ball' && <GoldenBall />}
-      <P>{ev.text}</P>
+      {live ? (
+        <Text style={{ color: t.mut, fontFamily: font.medium, textAlign: 'center', paddingVertical: 8 }}>O jogo está rolando…</Text>
+      ) : (
+        <FadeIn>
+          <Eyebrow>{eyebrow}</Eyebrow>
+          <H2>{ev.title}</H2>
+          {ev.visual === 'trophy' && <Trophy />}
+          {ev.visual === 'ball' && <GoldenBall />}
+          <P>{ev.text}</P>
+        </FadeIn>
+      )}
 
-      {ev.isPenalty && ev.penaltyZones ? (
+      {live ? null : ev.isPenalty && ev.penaltyZones ? (
         <PenaltyAim
           zones={ev.penaltyZones}
           ideal={ev.penaltyPower ?? { idealMin: 60, idealMax: 85 }}
@@ -142,6 +152,7 @@ export function ResultCard({ r }: { r: ResultView }) {
   }
   return (
     <Card accent={c}>
+      {r.match && r.match.lines.length > 0 && <MatchPitch match={r.match} />}
       {r.success && !big && !r.penalty && r.chips.some((ch) => ch.up && ch.text.startsWith('Gol ')) && (
         <View pointerEvents="none" style={styles.fireworks}>
           <Celebration kind="fogos" />
