@@ -19,8 +19,13 @@ import type {
  * celular físico na mesma rede e no emulador.
  */
 function resolveBaseUrl(): string {
-  const env = process.env.EXPO_PUBLIC_API_URL;
-  if (env) return env.replace(/\/$/, '');
+  const env = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (env) {
+    // Aceita o endereço sem "https://" (ex.: camisa10back-production.up.railway.app).
+    const local = /^(localhost|127\.|10\.|192\.168\.)/.test(env);
+    const withScheme = /^https?:\/\//i.test(env) ? env : (local ? 'http://' : 'https://') + env;
+    return withScheme.replace(/\/+$/, '');
+  }
   if (Platform.OS === 'web') return 'http://localhost:5080';
   const host = Constants.expoConfig?.hostUri?.split(':')[0];
   if (host) return `http://${host}:5080`;
