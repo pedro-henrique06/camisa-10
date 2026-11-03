@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Animated, Easing, Pressable, View } from 'react-native';
-import Svg, { Circle, Defs, G, Line, LinearGradient as SvgGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
+import { Animated, Easing, View } from 'react-native';
+import Svg, { Circle, Defs, G, LinearGradient as SvgGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 
 import type { Badge as BadgeT } from '@/api/types';
 import { font, useTheme } from '@/theme';
@@ -316,106 +316,5 @@ export function D20({ value }: { value: number }) {
         </SvgText>
       </Svg>
     </Animated.View>
-  );
-}
-
-const GOAL_W = 300,
-  GOAL_H = 140,
-  RUN = 44; // espaço abaixo do gol até a marca do pênalti
-
-/**
- * Gol do pênalti: 6 zonas. Ao tocar, a bola voa até o ponto e só depois a escolha é enviada.
- */
-export function PenaltyGoal({ zones, onShoot, disabled }: { zones: string[]; onShoot: (i: number) => void; disabled?: boolean }) {
-  const t = useTheme();
-  const [width, setWidth] = useState(320);
-  const [target, setTarget] = useState<number | null>(null);
-  const [fly] = useState(() => new Animated.Value(0));
-  const scale = width / GOAL_W;
-  const zone = (i: number) => ({ x: 12 + (i % 3) * 92, y: 14 + (i > 2 ? 58 : 0), w: 92, h: 58 });
-
-  const shoot = (i: number) => {
-    if (disabled || target != null) return;
-    setTarget(i);
-    Animated.timing(fly, { toValue: 1, duration: 520, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(() => onShoot(i));
-  };
-
-  const z = target != null ? zone(target) : null;
-  const startX = width / 2 - 14,
-    startY = (GOAL_H + RUN) * scale - 34;
-  const endX = z ? (z.x + z.w / 2) * scale - 14 : startX;
-  const endY = z ? (z.y + z.h / 2) * scale - 14 : startY;
-
-  return (
-    <View onLayout={(e) => setWidth(Math.min(360, e.nativeEvent.layout.width))} style={{ alignSelf: 'stretch', alignItems: 'center' }}>
-      <View style={{ width, height: (GOAL_H + RUN) * scale }}>
-        <Svg width={width} height={(GOAL_H + RUN) * scale} viewBox={`0 0 ${GOAL_W} ${GOAL_H + RUN}`}>
-          {/* rede */}
-          <G stroke="rgba(255,255,255,0.18)" strokeWidth={1}>
-            {Array.from({ length: 24 }, (_, i) => (
-              <Line key={'v' + i} x1={12 + i * 12} y1={14} x2={12 + i * 12} y2={130} />
-            ))}
-            {Array.from({ length: 10 }, (_, i) => (
-              <Line key={'h' + i} x1={12} y1={14 + i * 12} x2={288} y2={14 + i * 12} />
-            ))}
-          </G>
-          {/* traves */}
-          <Path d="M8 134V10h284v124" fill="none" stroke="#ffffff" strokeWidth={6} strokeLinejoin="round" />
-          <Line x1={0} y1={134} x2={300} y2={134} stroke="rgba(255,255,255,0.5)" strokeWidth={2} />
-          {/* goleiro */}
-          <G opacity={0.9}>
-            <Circle cx={150} cy={78} r={9} fill="#ff7a70" />
-            <Path d="M136 92h28l6 36h-40z" fill="#ff7a70" />
-            <Path d="M136 94l-18-14M164 94l18-14" stroke="#ff7a70" strokeWidth={6} strokeLinecap="round" />
-          </G>
-          {zones.map((label, i) => {
-            const q = zone(i);
-            return (
-              <Rect
-                key={label}
-                x={q.x}
-                y={q.y}
-                width={q.w}
-                height={q.h}
-                fill={target === i ? t.acc : '#ffffff'}
-                fillOpacity={target === i ? 0.35 : 0.02}
-                stroke={t.acc}
-                strokeOpacity={0.8}
-                strokeWidth={1.5}
-                strokeDasharray="4 4"
-                onPress={() => shoot(i)}
-              />
-            );
-          })}
-          {/* marca do pênalti */}
-          <Circle cx={150} cy={GOAL_H + RUN - 12} r={3} fill="#ffffff" />
-        </Svg>
-        <Animated.View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            transform: [
-              { translateX: fly.interpolate({ inputRange: [0, 1], outputRange: [startX, endX] }) },
-              { translateY: fly.interpolate({ inputRange: [0, 1], outputRange: [startY, endY] }) },
-              { scale: fly.interpolate({ inputRange: [0, 1], outputRange: [1, 0.6] }) },
-              { rotate: fly.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '720deg'] }) },
-            ],
-          }}
-        >
-          <Svg width={28} height={28} viewBox="0 0 28 28">
-            <Circle cx={14} cy={14} r={12} fill="#ffffff" stroke="#10261c" strokeWidth={1.5} />
-            <Path d="M14 8l5 3.5-2 5.5h-6l-2-5.5z" fill="#10261c" />
-          </Svg>
-        </Animated.View>
-      </View>
-      {/* acessibilidade: botões com o nome das zonas para leitores de tela */}
-      <View style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0 }}>
-        {zones.map((label, i) => (
-          <Pressable key={label} accessibilityRole="button" accessibilityLabel={'Bater ' + label} onPress={() => shoot(i)} />
-        ))}
-      </View>
-    </View>
   );
 }

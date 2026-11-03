@@ -51,13 +51,13 @@ export default function CareerScreen() {
     };
   }, [id]);
 
-  const act = async (type: ActionType, index?: number) => {
+  const act = async (type: ActionType, index?: number, power?: number) => {
     if (!view || inFlight.current) return;
     inFlight.current = true;
     setBusy(true);
     setError(null);
     try {
-      const next = await api.act(view.id, view.version, type, index);
+      const next = await api.act(view.id, view.version, type, index, power);
       setView(next);
       scroll.current?.scrollTo({ y: 0, animated: true });
     } catch (e) {
@@ -96,7 +96,7 @@ export default function CareerScreen() {
   }
 
   const next = () => act('Continue');
-  const choose = (i: number) => act('Choose', i);
+  const choose = (i: number, power?: number) => act('Choose', i, power);
   // Remonta a tela a cada nova versão para reiniciar as animações.
   const key = `${view.phase}-${view.version}`;
 
@@ -133,6 +133,7 @@ export default function CareerScreen() {
     <Screen scrollRef={scroll} footer={footer}>
       <Hud
         hud={view.hud}
+        compact={view.phase === 'Penalty' || (view.phase === 'Result' && !!view.result?.penalty)}
         busy={busy}
         onHistory={() => router.push({ pathname: '/career/[id]/history', params: { id: view.id } })}
         onSearchClub={() => act('SearchClub')}

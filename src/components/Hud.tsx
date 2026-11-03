@@ -13,13 +13,15 @@ const KEY_BARS = ['m', 'p', 't', 'f'];
 
 type Props = {
   hud: HudView;
+  /** Só a linha do clube e o overall (usado no pênalti, para a cena caber na tela). */
+  compact?: boolean;
   onHistory: () => void;
   onSearchClub?: () => void;
   busy?: boolean;
 };
 
 /** Cabeçalho compacto: clube, overall, temporada, atributos e principais barras. */
-export function Hud({ hud, onHistory, onSearchClub, busy }: Props) {
+export function Hud({ hud, onHistory, onSearchClub, busy, compact }: Props) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
   const toggle = () => {
@@ -29,6 +31,26 @@ export function Hud({ hud, onHistory, onSearchClub, busy }: Props) {
   const bars = hud.bars.filter((b) => b.key !== 'h' && (open || KEY_BARS.includes(b.key)));
   // Fama cresce com a carreira: valor baixo não é ruim, então fica na cor neutra.
   const barColor = (key: string, v: number) => (key === 'f' ? t.acc : v < 35 ? t.bad : v < 55 ? t.warn : t.good);
+
+  if (compact) {
+    return (
+      <View style={[styles.panel, styles.top, { backgroundColor: t.card + 'cc', borderColor: t.line, paddingVertical: 10 }]}>
+        <Badge badge={hud.clubBadge} size={32} />
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.name, { color: t.ink, fontSize: 19 }]} numberOfLines={1}>
+            {hud.name}
+          </Text>
+          <Text style={{ color: t.mut, fontFamily: font.medium, fontSize: 12 }} numberOfLines={1}>
+            {hud.club} · {hud.age} anos · {hud.position}
+          </Text>
+        </View>
+        <View style={[styles.money, { backgroundColor: t.accSoft, alignItems: 'center' }]}>
+          <Text style={{ color: t.acc, fontFamily: font.display, fontSize: 20 }}>{hud.overall}</Text>
+          <Text style={{ color: t.mut, fontFamily: font.bold, fontSize: 9 }}>OVR</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.panel, { backgroundColor: t.card + 'cc', borderColor: t.line }]}>

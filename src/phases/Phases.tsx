@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { Share, StyleSheet, Text, View } from 'react-native';
 
 import type { EventView, FinalView, MarketView, ResultView, SeasonView } from '@/api/types';
-import { Armband, Badge, Confetti, D20, GoldenBall, PenaltyGoal, Pitch, Trophy } from '@/components/art';
+import { Armband, Badge, Confetti, D20, GoldenBall, Pitch, Trophy } from '@/components/art';
+import { PenaltyAim, PenaltyReplay } from '@/components/PenaltyScene';
 import { Btn, Card, Chip, Eyebrow, FadeIn, H1, H2, haptic, money, P, PressableScale, Row, Stat } from '@/components/ui';
 import { chanceColor, condensed, font, useTheme } from '@/theme';
 
@@ -69,7 +70,7 @@ function Option({ letter, label, check, onPress, disabled, delay }: {
 }
 
 /** Evento com opções ou cobrança de pênalti. */
-export function EventCard({ ev, onChoose, busy }: { ev: EventView; onChoose: (i: number) => void } & Act) {
+export function EventCard({ ev, onChoose, busy }: { ev: EventView; onChoose: (i: number, power?: number) => void } & Act) {
   const t = useTheme();
   const eyebrow = ev.isPenalty ? 'Pênalti' : ev.competition ? 'Lance da partida' : ev.routine ? 'Treino' : 'Sua decisão';
   return (
@@ -93,12 +94,13 @@ export function EventCard({ ev, onChoose, busy }: { ev: EventView; onChoose: (i:
       <P>{ev.text}</P>
 
       {ev.isPenalty && ev.penaltyZones ? (
-        <>
-          <PenaltyGoal zones={ev.penaltyZones} onShoot={onChoose} disabled={busy} />
-          <P muted style={{ textAlign: 'center' }}>
-            Toque no canto do gol · seu Chute: {ev.shotSkill}
-          </P>
-        </>
+        <PenaltyAim
+          zones={ev.penaltyZones}
+          ideal={ev.penaltyPower ?? { idealMin: 60, idealMax: 85 }}
+          shotSkill={ev.shotSkill}
+          onShoot={(zone, power) => onChoose(zone, power)}
+          disabled={busy}
+        />
       ) : (
         <View style={{ marginTop: 4 }}>
           {ev.options.map((o, i) => (
@@ -116,13 +118,28 @@ export function ResultCard({ r }: { r: ResultView }) {
   const d = r.dice;
   const c = r.success ? t.good : t.bad;
   useEffect(() => {
+    if (r.penalty) return; // a cena do pênalti já vibrou no lance
     if (r.success) haptic.success();
     else haptic.fail();
-  }, [r.success]);
+  }, [r.success, r.penalty]);
   const big = r.anim === 'capt' || r.anim === 'trophy' || r.anim === 'ball';
+  // No pênalti, o resto do resultado aparece depois da animação da cobrança.
+  const [replayDone, setReplayDone] = useState(!r.penalty);
+  if (r.penalty && !replayDone) {
+    return (
+      <Card>
+        <Eyebrow>Pênalti</Eyebrow>
+        <PenaltyReplay shot={r.penalty} onDone={() => setReplayDone(true)} />
+        <Text style={{ color: t.mut, fontFamily: font.medium, textAlign: 'center', marginTop: 10 }}>
+          “{r.chosen}” · força {r.penalty.power}
+        </Text>
+      </Card>
+    );
+  }
   return (
     <Card accent={c}>
       {r.success && big && <Confetti />}
+      {r.penalty && <PenaltyReplayStill shot={r.penalty} />}
       <View style={[styles.banner, { backgroundColor: r.success ? t.goodSoft : t.badSoft }]}>
         <Text style={{ fontSize: 22 }}>{r.success ? '✅' : '❌'}</Text>
         <Text style={[condensed, { color: c, fontSize: 22, letterSpacing: 0.5, textTransform: 'uppercase' }]}>
@@ -157,6 +174,15 @@ export function ResultCard({ r }: { r: ResultView }) {
         ))}
       </View>
     </Card>
+  );
+}
+
+/** Cena final do pênalti já resolvida (sem repetir a animação). */
+function PenaltyReplayStill({ shot }: { shot: NonNullable<ResultView['penalty']> }) {
+  return (
+    <View style={{ marginBottom: 12 }}>
+      <PenaltyReplay shot={shot} still />
+    </View>
   );
 }
 
