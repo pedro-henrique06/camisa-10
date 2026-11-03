@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Animated, Easing, View } from 'react-native';
-import Svg, { Circle, Defs, G, LinearGradient as SvgGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient as SvgGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 
 import type { Badge as BadgeT } from '@/api/types';
 import { font, useTheme } from '@/theme';
@@ -232,60 +232,6 @@ export function Armband() {
         </SvgText>
       </Svg>
     </Animated.View>
-  );
-}
-
-const SPOTS: Record<string, [number, number][]> = {
-  Atacante: [[100, 45]],
-  Ponta: [[35, 85], [165, 85]],
-  Meia: [[100, 120]],
-  Volante: [[100, 165]],
-  Lateral: [[30, 185], [170, 185]],
-  Zagueiro: [[75, 220], [125, 220]],
-};
-const SHORT: Record<string, string> = { Atacante: 'ATA', Ponta: 'PON', Meia: 'MEI', Volante: 'VOL', Lateral: 'LAT', Zagueiro: 'ZAG' };
-
-/** Campo com as posições. */
-export function Pitch({ selected, current, onPick, width = 240 }: { selected?: string | null; current?: string | null; onPick?: (p: string) => void; width?: number }) {
-  const t = useTheme();
-  const lines = 'rgba(255,255,255,0.55)';
-  return (
-    <View style={{ alignItems: 'center', marginVertical: 12 }}>
-      <Svg viewBox="0 0 200 262" width={width} height={(width * 262) / 200}>
-        <Defs>
-          <SvgGradient id="grass" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#1f7a4a" />
-            <Stop offset="1" stopColor="#145c37" />
-          </SvgGradient>
-        </Defs>
-        <Rect x={4} y={4} width={192} height={254} rx={8} fill="url(#grass)" />
-        {Array.from({ length: 8 }, (_, i) => (
-          <Rect key={i} x={4} y={4 + i * 31.75} width={192} height={15.9} fill="#ffffff" fillOpacity={0.04} />
-        ))}
-        <G fill="none" stroke={lines} strokeWidth={1.5}>
-          <Rect x={4} y={4} width={192} height={254} rx={8} />
-          <Path d="M4 131h192" />
-          <Circle cx={100} cy={131} r={25} />
-          <Rect x={55} y={4} width={90} height={40} />
-          <Rect x={55} y={218} width={90} height={40} />
-        </G>
-        {Object.entries(SPOTS).flatMap(([pos, spots]) =>
-          spots.map(([x, y], i) => {
-            const on = pos === selected;
-            const cur = pos === current && !on;
-            return (
-              <G key={pos + i} onPress={onPick ? () => onPick(pos) : undefined}>
-                {onPick && <Circle cx={x} cy={y} r={20} fill="transparent" />}
-                <Circle cx={x} cy={y} r={on ? 14 : 12} fill={on ? t.acc : 'rgba(11,36,25,0.55)'} stroke={on || cur ? t.acc : '#ffffff'} strokeWidth={2} strokeDasharray={cur ? '4' : undefined} />
-                <SvgText x={x} y={y + 4} textAnchor="middle" fontSize={9} fontFamily={font.bold} fill={on ? '#10261c' : '#ffffff'}>
-                  {SHORT[pos]}
-                </SvgText>
-              </G>
-            );
-          }),
-        )}
-      </Svg>
-    </View>
   );
 }
 

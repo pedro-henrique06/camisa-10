@@ -2,9 +2,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
 import { Share, StyleSheet, Text, View } from 'react-native';
 
-import type { EventView, FinalView, MarketView, ResultView, SeasonView } from '@/api/types';
-import { Armband, Badge, Confetti, D20, GoldenBall, Pitch, Trophy } from '@/components/art';
+import { api } from '@/api/client';
+import type { EventView, FinalView, MarketView, PositionOption, ResultView, SeasonView } from '@/api/types';
+import { Armband, Badge, Confetti, D20, GoldenBall, Trophy } from '@/components/art';
 import { PenaltyAim, PenaltyReplay } from '@/components/PenaltyScene';
+import { PositionPitch } from '@/components/PositionPitch';
 import { Btn, Card, Chip, Eyebrow, FadeIn, H1, H2, haptic, money, P, PressableScale, Row, Stat } from '@/components/ui';
 import { chanceColor, condensed, font, useTheme } from '@/theme';
 
@@ -236,6 +238,17 @@ function OfferStat({ label, value }: { label: string; value: string }) {
 }
 
 export function SwapCard({ current, suggested, onChoose, busy }: { current: string; suggested: string; onChoose: (i: number) => void } & Act) {
+  const [info, setInfo] = useState<PositionOption[] | undefined>();
+  useEffect(() => {
+    let alive = true;
+    api.meta().then(
+      (m) => alive && setInfo(m.positionInfo),
+      () => {},
+    );
+    return () => {
+      alive = false;
+    };
+  }, []);
   return (
     <Card>
       <Eyebrow>Conversa com o treinador</Eyebrow>
@@ -243,9 +256,9 @@ export function SwapCard({ current, suggested, onChoose, busy }: { current: stri
       <P>
         “Acho que você rende mais de {suggested}.” Hoje você joga de {current}.
       </P>
-      <Pitch selected={suggested} current={current} />
+      <PositionPitch selected={suggested} current={current} info={info} width={250} />
       <P muted style={{ textAlign: 'center' }}>
-        Tracejado: posição atual · Amarelo: sugestão
+        Tracejado: posição atual · Dourado: sugestão do treinador
       </P>
       <Btn primary label={`Aceitar: jogar de ${suggested}`} onPress={() => onChoose(0)} busy={busy} />
       <Btn label={`Prefiro continuar de ${current}`} onPress={() => onChoose(1)} disabled={busy} />

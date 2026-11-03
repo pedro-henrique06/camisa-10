@@ -4,7 +4,8 @@ import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-nati
 
 import { api, API_URL } from '@/api/client';
 import type { CareerSummary, MetaView } from '@/api/types';
-import { Badge, Jersey, Pitch } from '@/components/art';
+import { Badge, Jersey } from '@/components/art';
+import { PositionPitch } from '@/components/PositionPitch';
 import { Screen } from '@/components/Screen';
 import { Btn, Card, Eyebrow, FadeIn, H1, H2, P, PressableScale } from '@/components/ui';
 import { condensed, font, useTheme } from '@/theme';
@@ -177,8 +178,8 @@ export default function Home() {
           <Card key="s3">
             <Eyebrow>Passo 4</Eyebrow>
             <H2>Onde você joga?</H2>
-            <P muted>Toque na posição. Ela define quais atributos pesam no seu overall.</P>
-            <Pitch selected={position} onPick={setPosition} width={260} />
+            <P muted>Toque numa camisa. A posição define quais atributos pesam no seu overall.</P>
+            <PositionPitch selected={position} onPick={setPosition} info={meta.positionInfo} width={270} />
             {error && <P style={{ color: t.bad }}>{error}</P>}
           </Card>
         )}

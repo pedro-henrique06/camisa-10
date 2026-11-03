@@ -75,8 +75,17 @@ async function request<T>(path: string, init: RequestInit = {}, accept: number[]
   return (await res.json()) as T;
 }
 
+let metaCache: Promise<MetaView> | null = null;
+
 export const api = {
-  meta: () => request<MetaView>('/api/meta'),
+  /** Dados fixos do jogo; ficam em memória depois da primeira chamada bem-sucedida. */
+  meta: () => {
+    metaCache ??= request<MetaView>('/api/meta').catch((e) => {
+      metaCache = null;
+      throw e;
+    });
+    return metaCache;
+  },
   careers: (status?: 'Active' | 'Finished') =>
     request<CareerSummary[]>('/api/careers' + (status ? `?status=${status}` : '')),
   create: (body: { name: string; club: string; nation: string; position: string }) =>
