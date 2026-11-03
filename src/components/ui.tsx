@@ -56,12 +56,15 @@ export function PressableScale({
   onPress,
   disabled,
   style,
+  containerStyle,
   accessibilityLabel,
 }: {
   children: ReactNode;
   onPress: () => void;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  /** Estilo do item no layout (largura em %, flexGrow), aplicado por fora da animação. */
+  containerStyle?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
 }) {
   const [s] = useState(() => new Animated.Value(1));
@@ -71,6 +74,7 @@ export function PressableScale({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       disabled={disabled}
+      style={containerStyle}
       onPressIn={() => to(0.96)}
       onPressOut={() => to(1)}
       onPress={() => {
