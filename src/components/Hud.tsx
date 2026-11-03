@@ -62,6 +62,11 @@ export function Hud({ hud, onHistory, onSearchClub, busy, compact }: Props) {
             {hud.name}
             {hud.captain ? <Text style={{ color: t.acc }}> · C</Text> : null}
           </Text>
+          {hud.division && (
+            <Text style={{ color: t.acc, fontFamily: font.bold, fontSize: 12 }}>
+              {hud.clubCountryFlag} Série {hud.division}
+            </Text>
+          )}
           <Text style={{ color: t.mut, fontFamily: font.medium, fontSize: 13 }} numberOfLines={2}>
             {hud.clubLine}
           </Text>

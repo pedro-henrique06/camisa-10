@@ -2,7 +2,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-import type { ActionType, CareerSummary, GameView, HistoryView, MetaView } from './types';
+import type {
+  ActionType,
+  CareerSummary,
+  ClubSearchResult,
+  CountrySummary,
+  CountryView,
+  GameView,
+  HistoryView,
+  MetaView,
+} from './types';
 
 /**
  * Endereço da API. Use EXPO_PUBLIC_API_URL (ex.: http://192.168.0.10:5080) para apontar para outro servidor.
@@ -99,5 +108,9 @@ export const api = {
       [409],
     ),
   history: (id: string) => request<HistoryView>(`/api/careers/${id}/history`),
+  /** Os 211 países com as três divisões. */
+  countries: () => request<CountrySummary[]>('/api/world'),
+  country: (iso: string) => request<CountryView>(`/api/world/${encodeURIComponent(iso)}`),
+  searchClubs: (q: string) => request<ClubSearchResult[]>(`/api/world/search?q=${encodeURIComponent(q)}`),
   remove: (id: string) => request<void>(`/api/careers/${id}`, { method: 'DELETE' }),
 };

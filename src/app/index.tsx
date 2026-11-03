@@ -5,6 +5,7 @@ import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-nati
 import { api, API_URL } from '@/api/client';
 import type { CareerSummary, MetaView } from '@/api/types';
 import { Badge, Jersey } from '@/components/art';
+import { ClubPicker, type PickedClub } from '@/components/ClubPicker';
 import { PositionPitch } from '@/components/PositionPitch';
 import { Screen } from '@/components/Screen';
 import { Btn, Card, Eyebrow, FadeIn, H1, H2, P, PressableScale } from '@/components/ui';
@@ -22,7 +23,8 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<number | null>(null);
   const [name, setName] = useState('');
-  const [club, setClub] = useState('Flamengo');
+  const [club, setClub] = useState<PickedClub | null>(null);
+  const [nationFilter, setNationFilter] = useState('');
   const [nation, setNation] = useState('Brasil');
   const [position, setPosition] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -49,7 +51,7 @@ export default function Home() {
     if (creating || !position) return;
     setCreating(true);
     try {
-      const v = await api.create({ name: name.trim() || 'Craque', club, nation, position });
+      const v = await api.create({ name: name.trim() || 'Craque', club: club?.id ?? meta?.baseClubs[0]?.id ?? 'Flamengo', nation, position });
       setStep(null);
       router.push({ pathname: '/career/[id]', params: { id: v.id } });
     } catch (e) {
@@ -59,7 +61,8 @@ export default function Home() {
     }
   };
 
-  const clubInfo = meta?.baseClubs.find((c) => c.name === club);
+  // sem escolha, começa no primeiro clube em destaque (Flamengo)
+  const clubInfo = club ?? (meta?.baseClubs[0] ? { ...meta.baseClubs[0], country: 'Brasil', flag: '🇧🇷', league: '' } : null);
   const nationInfo = meta?.nations.find((n) => n.name === nation);
 
   // ------------------------------------------------------------ criação em passos
@@ -98,7 +101,7 @@ export default function Home() {
               {name.trim() || 'Craque'}
             </Text>
             <Text style={{ color: t.mut, fontFamily: font.medium }}>
-              Base do {club} · {nationInfo?.flag} {nation}
+              Base do {clubInfo?.name} {clubInfo?.flag} · seleção {nationInfo?.flag} {nation}
               {position ? ` · ${position}` : ''}
             </Text>
           </View>
@@ -127,26 +130,8 @@ export default function Home() {
           <Card key="s1">
             <Eyebrow>Passo 2</Eyebrow>
             <H2>Clube da sua base</H2>
-            <P muted>Clubes maiores dão mais vitrine, mas a briga por espaço é maior.</P>
-            <View style={styles.grid}>
-              {meta.baseClubs.map((c) => {
-                const on = c.name === club;
-                return (
-                  <PressableScale
-                    key={c.name}
-                    onPress={() => setClub(c.name)}
-                    style={[styles.tile, { borderColor: on ? t.acc : t.line, backgroundColor: on ? t.accSoft : t.cardHi }]}
-                    accessibilityLabel={c.name}
-                  >
-                    <Badge badge={c.badge} size={30} />
-                    <Text style={{ color: t.ink, fontFamily: font.semibold, fontSize: 12, textAlign: 'center' }} numberOfLines={2}>
-                      {c.name}
-                    </Text>
-                    <Text style={{ color: t.acc, fontSize: 10 }}>{'★'.repeat(c.tier + 1)}</Text>
-                  </PressableScale>
-                );
-              })}
-            </View>
+            <P muted>211 países, cada um com Série A, B e C. Clubes maiores dão mais vitrine, mas a briga por espaço é maior.</P>
+            <ClubPicker selected={club} onPick={setClub} />
           </Card>
         )}
 
@@ -155,22 +140,36 @@ export default function Home() {
             <Eyebrow>Passo 3</Eyebrow>
             <H2>Sua seleção</H2>
             <P muted>Seleções fortes disputam as copas com mais chance de título.</P>
+            <TextInput
+              value={nationFilter}
+              onChangeText={setNationFilter}
+              placeholder="🔎 Buscar entre as 211 seleções"
+              placeholderTextColor={t.mut}
+              style={[styles.input, { color: t.ink, borderColor: t.line, backgroundColor: t.cardHi, fontSize: 16 }]}
+            />
             <View style={styles.grid}>
-              {meta.nations.map((n) => {
-                const on = n.name === nation;
-                return (
-                  <PressableScale
-                    key={n.name}
-                    onPress={() => setNation(n.name)}
+              {meta.nations
+                .filter((n) => !nationFilter.trim() || n.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(nationFilter.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()))
+                .slice(0, nationFilter.trim() ? 211 : 24)
+                .map((n) => {
+                  const on = n.name === nation;
+                  return (
+                    <PressableScale
+                      key={n.name}
+                      onPress={() => setNation(n.name)}
+                      containerStyle={styles.tileBox}
                     style={[styles.tile, { borderColor: on ? t.acc : t.line, backgroundColor: on ? t.accSoft : t.cardHi }]}
-                    accessibilityLabel={n.name}
-                  >
-                    <Text style={{ fontSize: 28 }}>{n.flag}</Text>
-                    <Text style={{ color: t.ink, fontFamily: font.semibold, fontSize: 12, textAlign: 'center' }}>{n.name}</Text>
-                  </PressableScale>
-                );
-              })}
+                      accessibilityLabel={n.name}
+                    >
+                      <Text style={{ fontSize: 28 }}>{n.flag}</Text>
+                      <Text style={{ color: t.ink, fontFamily: font.semibold, fontSize: 12, textAlign: 'center' }} numberOfLines={2}>
+                        {n.name}
+                      </Text>
+                    </PressableScale>
+                  );
+                })}
             </View>
+            {!nationFilter.trim() && <P muted style={{ textAlign: 'center', fontSize: 13 }}>Mostrando as 24 mais fortes. Use a busca para ver todas.</P>}
           </Card>
         )}
 
@@ -272,5 +271,6 @@ const styles = StyleSheet.create({
   preview: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 16, padding: 12, marginBottom: 14 },
   input: { borderWidth: 2, borderRadius: 14, padding: 14, fontSize: 20, marginTop: 8, fontFamily: font.semibold },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8, justifyContent: 'space-between' },
-  tile: { width: '31.5%', flexGrow: 1, minHeight: 92, borderWidth: 1.5, borderRadius: 14, alignItems: 'center', justifyContent: 'center', padding: 6, gap: 4 },
+  tileBox: { width: '31.5%', flexGrow: 1 },
+  tile: { width: '100%', minHeight: 92, borderWidth: 1.5, borderRadius: 14, alignItems: 'center', justifyContent: 'center', padding: 6, gap: 4 },
 });

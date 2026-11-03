@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
-import { Share, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
 import { api } from '@/api/client';
 import type { EventView, FinalView, MarketView, PositionOption, ResultView, SeasonView } from '@/api/types';
@@ -193,6 +193,63 @@ function PenaltyReplayStill({ shot }: { shot: NonNullable<ResultView['penalty']>
   );
 }
 
+/** Posição na liga, acesso ou rebaixamento e a tabela final. */
+function LeagueResult({ r }: { r: SeasonView['report'] }) {
+  const t = useTheme();
+  const [open, setOpen] = useState(r.movement != null);
+  const banner =
+    r.movement === 'up'
+      ? { icon: '🎉', text: 'ACESSO CONQUISTADO!', color: t.good, bg: t.goodSoft }
+      : r.movement === 'down'
+        ? { icon: '😞', text: 'REBAIXADO', color: t.bad, bg: t.badSoft }
+        : r.rank === 1
+          ? { icon: '🏆', text: 'CAMPEÃO DA LIGA', color: t.acc, bg: t.accSoft }
+          : null;
+  return (
+    <View style={[styles.league, { borderColor: t.line, backgroundColor: t.cardHi }]}>
+      {banner && (
+        <View style={[styles.leagueBanner, { backgroundColor: banner.bg }]}>
+          <Text style={{ fontSize: 20 }}>{banner.icon}</Text>
+          <Text style={[condensed, { color: banner.color, fontSize: 20, letterSpacing: 0.5 }]}>{banner.text}</Text>
+        </View>
+      )}
+      <Pressable onPress={() => setOpen((v) => !v)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <Text style={[condensed, { color: t.acc, fontSize: 40, lineHeight: 42 }]}>{r.rank}º</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: t.ink, fontFamily: font.bold, fontSize: 15 }}>{r.leagueName}</Text>
+          <Text style={{ color: t.mut, fontFamily: font.medium, fontSize: 13 }}>
+            de {r.leagueSize} clubes · {open ? 'esconder tabela ▲' : 'ver tabela ▼'}
+          </Text>
+        </View>
+      </Pressable>
+      {open && (
+        <View style={{ marginTop: 8 }}>
+          {r.table.map((row) => (
+            <View
+              key={row.position}
+              style={[
+                styles.tableRow,
+                { borderLeftColor: row.zone === 'up' ? t.good : row.zone === 'down' ? t.bad : 'transparent' },
+                row.mine && { backgroundColor: t.accSoft },
+              ]}
+            >
+              <Text style={{ width: 26, color: t.mut, fontFamily: font.bold, fontSize: 13, textAlign: 'right' }}>{row.position}</Text>
+              <Text style={{ flex: 1, color: t.ink, fontFamily: row.mine ? font.bold : font.medium, fontSize: 14 }} numberOfLines={1}>
+                {row.club}
+                {row.mine ? '  ⭐' : ''}
+              </Text>
+              {row.zone && <Text style={{ color: row.zone === 'up' ? t.good : t.bad, fontSize: 12 }}>{row.zone === 'up' ? '▲' : '▼'}</Text>}
+            </View>
+          ))}
+          <Text style={{ color: t.mut, fontFamily: font.regular, fontSize: 12, marginTop: 6 }}>
+            <Text style={{ color: t.good }}>▲</Text> sobe de divisão · <Text style={{ color: t.bad }}>▼</Text> cai de divisão
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 const TIER_STARS = (fee: number) => (fee >= 120 ? 5 : fee >= 70 ? 4 : fee >= 35 ? 3 : fee >= 15 ? 2 : 1);
 
 /** Janela de transferências. */
@@ -213,6 +270,12 @@ export function MarketCard({ m, onChoose, onStay, busy }: { m: MarketView; onCho
                 <Text style={{ color: t.mut, fontFamily: font.medium }}>
                   {o.countryFlag} {o.country} · {'★'.repeat(TIER_STARS(o.fee))}
                 </Text>
+                {o.league && (
+                  <Text style={{ color: t.acc, fontFamily: font.semibold, fontSize: 12 }}>
+                    {o.league}
+                    {o.division ? ` · Série ${o.division}` : ''}
+                  </Text>
+                )}
               </View>
               <Text style={{ color: t.acc, fontFamily: font.bold }}>Assinar ›</Text>
             </View>
@@ -312,6 +375,7 @@ export function SeasonCard({ s }: { s: SeasonView }) {
       <View style={[styles.news, { backgroundColor: t.accSoft }]}>
         <Text style={{ color: t.ink, fontFamily: font.bold, fontSize: 16 }}>📰 {r.headline}</Text>
       </View>
+      {r.leagueName && r.rank > 0 && <LeagueResult r={r} />}
       <Row label="Total na carreira" value={`${s.totalGoals} gols · ${s.totalAssists} assist.`} />
       <Row label="Lances decisivos" value={`${r.decisiveGoals} gols · ${r.decisiveAssists} assist.`} />
       <Row label="Salário" value={`R$ ${r.salary} mil/mês`} />
@@ -405,5 +469,8 @@ const styles = StyleSheet.create({
   statGrid: { flexDirection: 'row', gap: 8, marginVertical: 8, flexWrap: 'wrap' },
   evo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderRadius: 14, padding: 12, marginVertical: 6 },
   news: { borderRadius: 12, padding: 12, marginVertical: 8 },
+  league: { borderWidth: 1, borderRadius: 14, padding: 12, marginVertical: 8 },
+  leagueBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 10, padding: 8, marginBottom: 10 },
+  tableRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4, paddingRight: 6, borderLeftWidth: 3, borderRadius: 4 },
   rival: { borderWidth: 1, borderStyle: 'dashed', borderRadius: 12, padding: 10, marginTop: 12, gap: 2 },
 });
