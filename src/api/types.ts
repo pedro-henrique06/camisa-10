@@ -461,10 +461,20 @@ export interface DuelView {
     options: { label: string; attribute: string; attributeName: string; value: number; bonus: number }[];
     myChoice: number | null;
     opponentChose: boolean;
+    /** choose: escolhendo as jogadas · roll: cada um rola o próprio d20. */
+    stage: 'choose' | 'roll';
+    myRoll: number | null;
+    opponentRoll: number | null;
+    /** Bônus do time para quem defende quando as posições não se enfrentam. */
+    teamHelp: number;
   } | null;
   history: DuelMoment[];
   /** Segundos até poder decidir pelo amigo (0 = já pode). */
   autoPickIn: number | null;
+  /** Posições que se enfrentam em campo (atacante x zagueiro, ponta x lateral, meia x volante). */
+  direct: boolean;
+  /** Ex.: "Atacante x Zagueiro". */
+  matchup: string;
 }
 
 export interface HistoryView {

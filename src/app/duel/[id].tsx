@@ -10,8 +10,8 @@ import { Screen } from '@/components/Screen';
 import { Btn, Card, Eyebrow, FadeIn, H2, haptic, P, PressableScale } from '@/components/ui';
 import { alpha, chanceColor, condensed, font, useTheme } from '@/theme';
 
-const ATTACK_ICON: Record<string, string> = { chu: '🎯', dri: '🌀', pas: '🤝' };
-const DEFENSE_ICON: Record<string, string> = { def: '🧱', fis: '💪', rit: '⚡' };
+const ATTACK_ICON: Record<string, string> = { chu: '🎯', dri: '🌀', pas: '🤝', rit: '⚡', fis: '💪', def: '🧱' };
+const DEFENSE_ICON: Record<string, string> = { def: '🧱', fis: '💪', rit: '⚡', pas: '✂️', chu: '🎯', dri: '🌀' };
 
 /**
  * Duelo da Mesa: 6 lances. Quem ataca escolhe chute, drible ou passe; quem defende tenta adivinhar.
@@ -57,6 +57,19 @@ export default function DuelScreen() {
     haptic.tap();
     try {
       setDuel(await api.duelChoose(id, i));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const roll = async () => {
+    if (busy) return;
+    setBusy(true);
+    haptic.tap();
+    try {
+      setDuel(await api.duelRoll(id));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -117,6 +130,22 @@ export default function DuelScreen() {
         {duel.competition}
       </Text>
 
+      {/* posições: combate direto ou setores diferentes */}
+      <View style={[styles.matchup, { borderColor: duel.direct ? t.acc : t.line, backgroundColor: duel.direct ? t.accSoft : t.cardHi }]}>
+        <Text style={{ fontSize: 20 }}>{duel.direct ? '⚔️' : '🛡️'}</Text>
+        <Text style={{ flex: 1, color: t.ink, fontFamily: font.medium, fontSize: 13 }}>
+          {duel.direct ? (
+            <>
+              <Text style={{ fontFamily: font.bold }}>Combate direto · {duel.matchup}.</Text> Vocês se enfrentam em todos os lances, e cada um rola o próprio d20.
+            </>
+          ) : (
+            <>
+              <Text style={{ fontFamily: font.bold }}>Setores diferentes · {duel.matchup}.</Text> Quem defende tem a ajuda do time: +2 no dado.
+            </>
+          )}
+        </Text>
+      </View>
+
       {error && (
         <Card accent={t.bad}>
           <Text style={{ color: t.bad, fontFamily: font.semibold }}>{error}</Text>
@@ -139,13 +168,47 @@ export default function DuelScreen() {
       {turn && (
         <Card accent={turn.myChoice == null ? t.acc : undefined}>
           <Eyebrow>{turn.role === 'attack' ? 'Você ataca' : 'Você defende'}</Eyebrow>
-          <H2>{turn.role === 'attack' ? 'A bola é sua. Qual a jogada?' : `${op.name} vem para cima. Como você marca?`}</H2>
+          <H2>
+            {turn.stage === 'roll'
+              ? 'Hora do dado!'
+              : turn.role === 'attack'
+                ? 'A bola é sua. Qual a jogada?'
+                : `${op.name} vem para cima. Como você marca?`}
+          </H2>
           <P muted>
             {turn.role === 'attack'
               ? 'Se o defensor adivinhar, ele ganha +4 no dado. Se errar, você ganha +2.'
               : 'Adivinhe a jogada para ganhar +4. Se errar, o atacante ganha +2.'}
           </P>
-          {turn.myChoice == null ? (
+          {turn.stage === 'roll' ? (
+            <View style={{ gap: 10, marginTop: 4 }}>
+              <Text style={{ color: t.ink, fontFamily: font.semibold }}>
+                Você escolheu “{turn.options[turn.myChoice ?? 0].label}”. {op.name} também já escolheu: cada um rola o seu d20.
+              </Text>
+              <View style={styles.rolls}>
+                <View style={{ flex: 1, alignItems: 'center', gap: 4 }}>
+                  <RollingD20 value={turn.myRoll} />
+                  <Text style={{ color: t.ink, fontFamily: font.bold, fontSize: 13 }}>Você</Text>
+                </View>
+                <Text style={[condensed, { color: t.mut, fontSize: 22 }]}>vs</Text>
+                <View style={{ flex: 1, alignItems: 'center', gap: 4 }}>
+                  <RollingD20 value={turn.opponentRoll} />
+                  <Text style={{ color: t.ink, fontFamily: font.bold, fontSize: 13 }}>{op.name}</Text>
+                </View>
+              </View>
+              {turn.myRoll == null ? (
+                <Btn primary label="🎲  Rolar o d20" onPress={roll} busy={busy} />
+              ) : (
+                <View style={styles.waiting}>
+                  <ActivityIndicator color={t.acc} />
+                  <Text style={{ color: t.ink, fontFamily: font.semibold, flex: 1 }}>Você tirou {turn.myRoll}. Esperando {op.name} rolar o dado…</Text>
+                </View>
+              )}
+              {turn.teamHelp > 0 && (
+                <Text style={{ color: t.mut, fontFamily: font.regular, fontSize: 12 }}>O time ajuda na marcação: +{turn.teamHelp} no seu dado.</Text>
+              )}
+            </View>
+          ) : turn.myChoice == null ? (
             turn.options.map((o, i) => (
               <PressableScale
                 key={o.label}
@@ -179,10 +242,12 @@ export default function DuelScreen() {
             <View style={{ marginTop: 8 }}>
               {duel.autoPickIn > 0 ? (
                 <Text style={{ color: t.mut, fontFamily: font.regular, fontSize: 12, textAlign: 'center' }}>
-                  Se {op.name} não escolher em {duel.autoPickIn} s, você pode decidir por ele.
+                  {turn.stage === 'roll'
+                    ? `Se ${op.name} não rolar em ${duel.autoPickIn} s, o jogo pode rolar por ele.`
+                    : `Se ${op.name} não escolher em ${duel.autoPickIn} s, você pode decidir por ele.`}
                 </Text>
               ) : (
-                <Btn small icon="⏱" label={`Decidir por ${op.name}`} onPress={auto} disabled={busy} />
+                <Btn small icon="⏱" label={turn.stage === 'roll' ? `Rolar por ${op.name}` : `Decidir por ${op.name}`} onPress={auto} disabled={busy} />
               )}
             </View>
           )}
@@ -239,7 +304,7 @@ function momentLines(m: DuelMoment, duel: DuelView, before: { for: number; again
       for: before.for,
       against: before.against,
     },
-    { minute: m.minute, text: `${m.goal ? 'GOL! ' : ''}${m.text}`, type: kind, for: f, against: a },
+    { minute: m.minute, text: m.goal && !m.text.startsWith('GOL') ? `GOL! ${m.text}` : m.text, type: kind, for: f, against: a },
   ];
 }
 
@@ -316,6 +381,48 @@ function MomentCard({ m, duel }: { m: DuelMoment; duel: DuelView }) {
   );
 }
 
+/** d20 que "gira" (números trocando) por um instante quando o resultado chega. */
+function RollingD20({ value }: { value: number | null }) {
+  const t = useTheme();
+  const [shown, setShown] = useState<number | null>(value);
+  const [spinning, setSpinning] = useState(false);
+  const prev = useRef(value);
+  useEffect(() => {
+    if (value == null || prev.current === value) {
+      prev.current = value;
+      return;
+    }
+    prev.current = value;
+    let n = 0;
+    const timer = setInterval(() => {
+      n++;
+      if (n >= 9) {
+        clearInterval(timer);
+        setShown(value);
+        setSpinning(false);
+        if (value === 20) haptic.success();
+        if (value === 1) haptic.fail();
+        return;
+      }
+      setSpinning(true);
+      setShown(1 + Math.floor(Math.random() * 20));
+    }, 70);
+    return () => clearInterval(timer);
+  }, [value]);
+  if (value == null) {
+    return (
+      <View style={[styles.dieEmpty, { borderColor: t.line }]}>
+        <Text style={[condensed, { color: t.mut, fontSize: 26 }]}>?</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={{ opacity: spinning ? 0.75 : 1 }}>
+      <D20 value={shown ?? value} />
+    </View>
+  );
+}
+
 function Roll({ who, play, roll, total, win }: { who: string; play: string; roll: number; total: number; win: boolean }) {
   const t = useTheme();
   return (
@@ -340,4 +447,6 @@ const styles = StyleSheet.create({
   section: { fontFamily: font.bold, fontSize: 11, letterSpacing: 1.2, marginBottom: 6 },
   line: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
   rolls: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  matchup: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 12, padding: 10, marginBottom: 10 },
+  dieEmpty: { width: 64, height: 64, borderRadius: 14, borderWidth: 2, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
 });
