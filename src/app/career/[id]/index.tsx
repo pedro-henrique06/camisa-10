@@ -6,6 +6,7 @@ import { api } from '@/api/client';
 import type { ActionType, GameView } from '@/api/types';
 import { CareerTabs, type CareerTab } from '@/components/CareerTabs';
 import { Hud } from '@/components/Hud';
+import { TrophyRoom } from '@/components/TrophyRoom';
 import { Screen } from '@/components/Screen';
 import { Btn, Card, P } from '@/components/ui';
 import { Calendar, SeasonPage, TablePage } from '@/phases/Calendar';
@@ -166,6 +167,7 @@ export default function CareerScreen() {
       )}
       {tab === 'calendario' && view.calendar && <SeasonPage cal={view.calendar} />}
       {tab === 'tabela' && view.calendar && <TablePage cal={view.calendar} />}
+      {tab === 'jogador' && view.hud.trophies && <TrophyRoom room={view.hud.trophies} />}
       {tab === 'jogador' && <PlayerExtras view={view} />}
       {tab === 'hoje' && (
         <>

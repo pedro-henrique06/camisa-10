@@ -73,6 +73,8 @@ export interface HudView {
   /** Posição na tabela ao vivo (0 sem tabela). */
   leaguePosition?: number;
   leagueSize?: number;
+  /** Sala de troféus. */
+  trophies?: TrophyRoom;
 }
 
 export interface CheckView {
@@ -421,4 +423,18 @@ export interface BracketTie {
   winner: 'home' | 'away' | null;
   penalties: boolean;
   mine: boolean;
+}
+
+/** Títulos da carreira agrupados por competição. untracked = títulos de carreiras antigas, sem detalhe. */
+export interface TrophyRoom {
+  titles: number;
+  nationalTitles: number;
+  ballons: number;
+  untracked: number;
+  groups: {
+    name: string;
+    kind: CompetitionKind | 'award';
+    count: number;
+    wins: { name: string; kind: string; season: number; age: number; team: string }[];
+  }[];
 }
