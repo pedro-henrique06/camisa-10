@@ -1,9 +1,9 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { api, API_URL } from '@/api/client';
-import type { CareerSummary, MetaView } from '@/api/types';
+import type { CareerSummary, MesaSummary, MetaView } from '@/api/types';
 import { Badge, Jersey } from '@/components/art';
 import { ClubPicker, type PickedClub } from '@/components/ClubPicker';
 import { PositionPitch } from '@/components/PositionPitch';
@@ -17,11 +17,18 @@ const STEPS = ['Nome', 'Clube', 'Seleção', 'Posição'];
 export default function Home() {
   const t = useTheme();
   const router = useRouter();
+  // vindo da tela da mesa: o jogador é criado dentro dela (mesmo mundo dos amigos)
+  const { mesa: mesaParam } = useLocalSearchParams<{ mesa?: string }>();
+  const [mesas, setMesas] = useState<MesaSummary[]>([]);
+  const [mesaForm, setMesaForm] = useState<'create' | 'join' | null>(null);
+  const [mesaName, setMesaName] = useState('');
+  const [mesaCode, setMesaCode] = useState('');
+  const [mesaBusy, setMesaBusy] = useState(false);
   const [meta, setMeta] = useState<MetaView | null>(null);
   const [active, setActive] = useState<CareerSummary[]>([]);
   const [gallery, setGallery] = useState<CareerSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<number | null>(null);
+  const [step, setStep] = useState<number | null>(mesaParam ? 0 : null);
   const [name, setName] = useState('');
   const [club, setClub] = useState<PickedClub | null>(null);
   const [nationFilter, setNationFilter] = useState('');
@@ -32,8 +39,9 @@ export default function Home() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [m, list] = await Promise.all([api.meta(), api.careers()]);
+      const [m, list, ms] = await Promise.all([api.meta(), api.careers(), api.mesas().catch(() => [] as MesaSummary[])]);
       setMeta(m);
+      setMesas(ms);
       setActive(list.filter((c) => c.status === 'Active').slice(0, 3));
       setGallery(list.filter((c) => c.status === 'Finished').slice(0, 8));
     } catch (e) {
@@ -51,7 +59,8 @@ export default function Home() {
     if (creating || !position) return;
     setCreating(true);
     try {
-      const v = await api.create({ name: name.trim() || 'Craque', club: club?.id ?? meta?.baseClubs[0]?.id ?? 'Flamengo', nation, position });
+      const body = { name: name.trim() || 'Craque', club: club?.id ?? meta?.baseClubs[0]?.id ?? 'Flamengo', nation, position };
+      const v = mesaParam ? await api.createMesaCareer(mesaParam, body) : await api.create(body);
       setStep(null);
       router.push({ pathname: '/career/[id]', params: { id: v.id } });
     } catch (e) {
@@ -71,7 +80,7 @@ export default function Home() {
     const footer = (
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <View style={{ flex: 1 }}>
-          <Btn label="‹  Voltar" onPress={() => setStep(step === 0 ? null : step - 1)} />
+          <Btn label="‹  Voltar" onPress={() => (step === 0 && mesaParam ? router.back() : setStep(step === 0 ? null : step - 1))} />
         </View>
         <View style={{ flex: 1.4 }}>
           {last ? (
@@ -215,6 +224,102 @@ export default function Home() {
       {meta && (
         <FadeIn delay={120}>
           <Btn primary label="Nova carreira  ⚽" onPress={() => setStep(0)} />
+        </FadeIn>
+      )}
+
+      {meta && (
+        <FadeIn delay={160}>
+          <Text style={[styles.section, { color: t.mut }]}>JOGAR COM AMIGOS</Text>
+          <Card>
+            <P muted style={{ marginTop: 0 }}>
+              Monte uma mesa: todos no mesmo mundo, o calendário andando junto e duelo de dados quando os clubes de vocês se enfrentam.
+            </P>
+            {mesaForm == null ? (
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Btn label="🎲  Criar mesa" onPress={() => setMesaForm('create')} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Btn label="🔑  Entrar" onPress={() => setMesaForm('join')} />
+                </View>
+              </View>
+            ) : (
+              <View style={{ gap: 8 }}>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  maxLength={20}
+                  placeholder="Seu nome na mesa"
+                  placeholderTextColor={t.mut}
+                  style={[styles.input, { color: t.ink, borderColor: t.line, backgroundColor: t.cardHi, fontSize: 16 }]}
+                />
+                {mesaForm === 'create' ? (
+                  <TextInput
+                    value={mesaName}
+                    onChangeText={setMesaName}
+                    maxLength={40}
+                    placeholder="Nome da mesa (ex.: Resenha de sexta)"
+                    placeholderTextColor={t.mut}
+                    style={[styles.input, { color: t.ink, borderColor: t.line, backgroundColor: t.cardHi, fontSize: 16 }]}
+                  />
+                ) : (
+                  <TextInput
+                    value={mesaCode}
+                    onChangeText={(v) => setMesaCode(v.toUpperCase())}
+                    maxLength={6}
+                    autoCapitalize="characters"
+                    placeholder="Código de 6 letras"
+                    placeholderTextColor={t.mut}
+                    style={[styles.input, { color: t.ink, borderColor: t.line, backgroundColor: t.cardHi, letterSpacing: 4 }]}
+                  />
+                )}
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    <Btn label="Cancelar" onPress={() => setMesaForm(null)} />
+                  </View>
+                  <View style={{ flex: 1.4 }}>
+                    <Btn
+                      primary
+                      busy={mesaBusy}
+                      disabled={mesaForm === 'join' && mesaCode.trim().length < 6}
+                      label={mesaForm === 'create' ? 'Criar' : 'Entrar'}
+                      onPress={async () => {
+                        setMesaBusy(true);
+                        try {
+                          const m =
+                            mesaForm === 'create'
+                              ? await api.createMesa(mesaName.trim() || 'Mesa dos amigos', name.trim() || 'Jogador')
+                              : await api.joinMesa(mesaCode.trim(), name.trim() || 'Jogador');
+                          setMesaForm(null);
+                          router.push({ pathname: '/mesa/[id]', params: { id: m.id } });
+                        } catch (e) {
+                          setError((e as Error).message);
+                        } finally {
+                          setMesaBusy(false);
+                        }
+                      }}
+                    />
+                  </View>
+                </View>
+              </View>
+            )}
+            {mesas.map((m) => (
+              <PressableScale
+                key={m.id}
+                onPress={() => router.push({ pathname: '/mesa/[id]', params: { id: m.id } })}
+                style={[styles.resume, { backgroundColor: t.cardHi, borderColor: t.line, marginTop: 8, marginBottom: 0 }]}
+              >
+                <Text style={{ fontSize: 24 }}>🎲</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: t.ink, fontFamily: font.bold }}>{m.name}</Text>
+                  <Text style={{ color: t.mut, fontFamily: font.medium, fontSize: 13 }}>
+                    {m.members} jogador{m.members === 1 ? '' : 'es'} · código {m.code}
+                  </Text>
+                </View>
+                <Text style={{ color: t.acc, fontFamily: font.bold }}>Abrir ›</Text>
+              </PressableScale>
+            ))}
+          </Card>
         </FadeIn>
       )}
 
