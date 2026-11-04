@@ -1,106 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Rect } from 'react-native-svg';
 
 import type { MatchLine, MatchView } from '@/api/types';
 import { Badge } from '@/components/art';
+import { createSim, lineAt, MY_SLOT, STEP_MS, stepSim, type P, type Sim } from '@/components/pitchSim';
 import { haptic } from '@/components/ui';
 import { alpha, compColor, condensed, font, useTheme } from '@/theme';
 
-const STEP_MS = 1250;
 const RATIO = 0.62;
 const DOT = 11;
 const ME = 15;
-
-type P = { x: number; y: number };
-
-/** 4-4-2 no próprio campo (x de 0 a 0,5, atacando para a direita). */
-const FORMATION: P[] = [
-  { x: 0.04, y: 0.5 },
-  { x: 0.17, y: 0.14 }, { x: 0.15, y: 0.38 }, { x: 0.15, y: 0.62 }, { x: 0.17, y: 0.86 },
-  { x: 0.31, y: 0.16 }, { x: 0.29, y: 0.4 }, { x: 0.29, y: 0.6 }, { x: 0.31, y: 0.84 },
-  { x: 0.44, y: 0.38 }, { x: 0.44, y: 0.62 },
-];
-
-/** Qual bolinha é o jogador, pela posição. */
-const MY_SLOT: Record<string, number> = { Atacante: 9, Ponta: 5, Meia: 6, Volante: 7, Lateral: 1, Zagueiro: 2 };
-
-/** Número pseudoaleatório estável (mesma linha, mesma jogada). */
-function rnd(seed: number) {
-  const v = Math.sin(seed * 9301 + 49297) * 233280;
-  return v - Math.floor(v);
-}
-
-const clamp = (v: number, a = 0.02, b = 0.98) => Math.min(b, Math.max(a, v));
-
-/** Onde a bola vai em cada tipo de linha da narração (o time do jogador ataca para a direita). */
-function ballFor(line: MatchLine, focus: MatchView['focus'], i: number): P {
-  const r = rnd(i + line.minute * 7);
-  switch (line.type) {
-    case 'goal-for':
-      return { x: 0.985, y: 0.46 + r * 0.08 };
-    case 'goal-against':
-      return { x: 0.015, y: 0.46 + r * 0.08 };
-    case 'chance-for':
-      return { x: 0.84 + r * 0.06, y: 0.3 + r * 0.4 };
-    case 'chance-against':
-      return { x: 0.1 + r * 0.06, y: 0.3 + r * 0.4 };
-    case 'whistle':
-      return { x: 0.5, y: 0.5 };
-    case 'decision':
-      return (
-        {
-          attack: { x: 0.79, y: 0.42 },
-          defense: { x: 0.22, y: 0.55 },
-          center: { x: 0.56, y: 0.5 },
-          cup: { x: 0.74, y: 0.4 },
-          penalty: { x: 0.885, y: 0.5 },
-          pre: { x: 0.5, y: 0.5 },
-          result: { x: 0.5, y: 0.5 },
-        } as const
-      )[focus];
-    default:
-      return { x: 0.3 + r * 0.4, y: 0.15 + rnd(i * 3 + 1) * 0.7 };
-  }
-}
-
-/** Posições dos 22 jogadores com a bola em `ball`: o time se desloca com ela e os mais perto correm atrás. */
-function arrange(ball: P, line: MatchLine, focus: MatchView['focus'], mySlot: number, i: number) {
-  const kickoff = line.type === 'whistle';
-  const shift = kickoff ? 0 : ball.x - 0.5;
-  const mine = FORMATION.map((p, k) => {
-    if (k === 0) return { x: 0.04 + Math.max(0, shift) * 0.08, y: clamp(0.5 + (ball.y - 0.5) * 0.3) };
-    return {
-      x: clamp(p.x + 0.06 + shift * 0.45 + (rnd(i * 31 + k) - 0.5) * 0.04, 0.08, 0.92),
-      y: clamp(p.y + (ball.y - 0.5) * 0.3 + (rnd(i * 17 + k) - 0.5) * 0.06),
-    };
-  });
-  const opp = FORMATION.map((p, k) => {
-    if (k === 0) return { x: 0.96 - Math.max(0, -shift) * 0.08, y: clamp(0.5 + (ball.y - 0.5) * 0.3) };
-    return {
-      x: clamp(1 - (p.x + 0.06 - shift * 0.45) + (rnd(i * 13 + k) - 0.5) * 0.04, 0.08, 0.92),
-      y: clamp(p.y + (ball.y - 0.5) * 0.3 + (rnd(i * 7 + k) - 0.5) * 0.06),
-    };
-  });
-  if (!kickoff) {
-    // os mais próximos de cada time correm atrás da bola
-    const near = (list: P[]) =>
-      list.map((p, k) => ({ k, d: k === 0 ? 9 : Math.hypot(p.x - ball.x, p.y - ball.y) })).sort((a, b) => a.d - b.d).slice(0, 2);
-    near(mine).forEach(({ k }, n) => (mine[k] = { x: clamp(ball.x - 0.03 - n * 0.05), y: clamp(ball.y + (n ? 0.08 : 0.02)) }));
-    near(opp).forEach(({ k }, n) => (opp[k] = { x: clamp(ball.x + 0.03 + n * 0.05), y: clamp(ball.y - (n ? 0.08 : 0.03)) }));
-  }
-  if (line.type === 'decision') {
-    // no lance decisivo, a bola está com você (ou você vai para cima de quem está com ela)
-    const withBall = focus !== 'defense' && focus !== 'pre';
-    mine[mySlot] = withBall ? { x: clamp(ball.x - 0.02), y: ball.y } : { x: clamp(ball.x - 0.05), y: clamp(ball.y + 0.05) };
-    if (focus === 'penalty') {
-      opp.forEach((p, k) => k > 0 && (opp[k] = { x: clamp(0.72 + rnd(k) * 0.06), y: 0.2 + (k / 11) * 0.6 }));
-      mine.forEach((p, k) => k > 0 && k !== mySlot && (mine[k] = { x: clamp(0.7 + rnd(k + 5) * 0.06), y: 0.15 + (k / 11) * 0.7 }));
-      opp[0] = { x: 0.975, y: 0.5 };
-    }
-  }
-  return { mine, opp };
-}
+const BALL = 8;
 
 /** Distância entre duas cores #rrggbb (0 a ~441). */
 function colorDistance(a: string, b: string) {
@@ -126,40 +37,33 @@ export function MatchPitch({ match, onDone }: { match: MatchView; onDone?: () =>
   const [done, setDone] = useState(false);
   const [dots] = useState(() => Array.from({ length: 22 }, () => new Animated.ValueXY({ x: -50, y: -50 })));
   const [ball] = useState(() => new Animated.ValueXY({ x: -50, y: -50 }));
-  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const sim = useRef<Sim | null>(null);
+  const frame = useRef<number | null>(null);
   const lines = match.lines;
   const mySlot = MY_SLOT[match.position] ?? 6;
   const height = width * RATIO;
+  const total = lines.length * STEP_MS;
 
-  const place = (i: number, ms: number) => {
-    const line = lines[i];
-    if (!line || !width) return;
-    const b = ballFor(line, match.focus, i);
-    const { mine, opp } = arrange(b, line, match.focus, mySlot, i);
+  /** Desenha a simulação: um único laço de animação move as 22 bolinhas e a bola. */
+  const draw = (s: Sim) => {
     const px = (p: P, size: number) => ({ x: p.x * width - size / 2, y: p.y * height - size / 2 });
-    const all = [...mine, ...opp];
-    if (ms === 0) {
-      all.forEach((p, k) => dots[k].setValue(px(p, k === mySlot ? ME : DOT)));
-      ball.setValue(px(b, 8));
-      return;
-    }
-    const easing = Easing.inOut(Easing.quad);
-    Animated.parallel(
-      all.map((p, k) => Animated.timing(dots[k], { toValue: px(p, k === mySlot ? ME : DOT), duration: ms * 0.9, easing, useNativeDriver: true })),
-    ).start();
-    // a bola passa por um companheiro antes de chegar ao destino
-    const mid = { x: clamp((b.x + 0.5) / 2 + (rnd(i) - 0.5) * 0.2), y: clamp(0.2 + rnd(i + 9) * 0.6) };
-    Animated.sequence([
-      Animated.timing(ball, { toValue: px(mid, 8), duration: ms * 0.4, easing, useNativeDriver: true }),
-      Animated.timing(ball, { toValue: px(b, 8), duration: ms * 0.45, easing, useNativeDriver: true }),
-    ]).start();
+    for (let k = 0; k < 22; k++) dots[k].setValue(px(s.pos[k], k === mySlot ? ME : DOT));
+    ball.setValue(px(s.ball, BALL));
+  };
+
+  const stop = () => {
+    if (frame.current != null) cancelAnimationFrame(frame.current);
+    frame.current = null;
   };
 
   const finish = () => {
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
+    stop();
+    const s = sim.current ?? createSim(lines, match.focus, mySlot);
+    sim.current = s;
+    // pula para o fim: a simulação corre em segundos o que faltava, sem desenhar
+    stepSim(s, total, lines, match.focus, mySlot);
+    if (width) draw(s);
     setIdx(lines.length - 1);
-    place(lines.length - 1, 250);
     setDone(true);
     onDone?.();
   };
@@ -174,32 +78,40 @@ export function MatchPitch({ match, onDone }: { match: MatchView; onDone?: () =>
       } catch {}
       if (cancelled) return;
       if (reduce || lines.length === 0) {
-        timers.current.push(setTimeout(finish, 0));
+        finish();
         return;
       }
-      // começa do jeito que o trecho anterior terminou
-      place(0, 0);
-      lines.forEach((line, i) => {
-        timers.current.push(
-          setTimeout(() => {
-            setIdx(i);
-            place(i, STEP_MS);
-            if (line.type === 'goal-for') haptic.success();
-            if (line.type === 'goal-against') haptic.fail();
-          }, i * STEP_MS),
-        );
-      });
-      timers.current.push(
-        setTimeout(() => {
+      const s = createSim(lines, match.focus, mySlot);
+      sim.current = s;
+      draw(s);
+      let started: number | null = null;
+      let shown = -1;
+      const loop = (ts: number) => {
+        if (cancelled) return;
+        started ??= ts;
+        const now = Math.min(total, ts - started);
+        stepSim(s, now, lines, match.focus, mySlot);
+        draw(s);
+        const li = lineAt(now, lines.length);
+        if (li !== shown) {
+          shown = li;
+          setIdx(li);
+          if (lines[li].type === 'goal-for') haptic.success();
+          if (lines[li].type === 'goal-against') haptic.fail();
+        }
+        if (now >= total) {
+          frame.current = null;
           setDone(true);
           onDone?.();
-        }, lines.length * STEP_MS),
-      );
+          return;
+        }
+        frame.current = requestAnimationFrame(loop);
+      };
+      frame.current = requestAnimationFrame(loop);
     })();
     return () => {
       cancelled = true;
-      timers.current.forEach(clearTimeout);
-      timers.current = [];
+      stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [width]);
@@ -277,6 +189,7 @@ export function MatchPitch({ match, onDone }: { match: MatchView; onDone?: () =>
               return (
                 <Animated.View
                   key={k}
+                  testID={`pitch-dot-${k}`}
                   style={[
                     styles.dot,
                     {
@@ -293,7 +206,7 @@ export function MatchPitch({ match, onDone }: { match: MatchView; onDone?: () =>
                 />
               );
             })}
-            <Animated.View style={[styles.ball, { transform: ball.getTranslateTransform() }]} />
+            <Animated.View testID="pitch-ball" style={[styles.ball, { transform: ball.getTranslateTransform() }]} />
             {!done && (
               <View style={styles.skip}>
                 <Text style={styles.skipText}>Toque para pular ›</Text>
