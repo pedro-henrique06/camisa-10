@@ -13,7 +13,7 @@ export type Phase =
   | 'Decision'
   | 'Finished';
 
-export type ActionType = 'Continue' | 'Choose' | 'Stay' | 'SearchClub' | 'Retire' | 'Offer';
+export type ActionType = 'Continue' | 'Choose' | 'Stay' | 'SearchClub' | 'Retire' | 'Offer' | 'Buy';
 
 export interface Badge {
   primary: string;
@@ -76,6 +76,8 @@ export interface HudView {
   leagueSize?: number;
   /** Sala de troféus. */
   trophies?: TrophyRoom;
+  /** Casa do jogador: equipamentos e profissionais para comprar. */
+  home?: HomeView;
 }
 
 export interface CheckView {
@@ -602,4 +604,28 @@ export interface AuthResponse {
   account: Account;
   /** Carreiras de convidado deste aparelho que vieram para a conta. */
   imported: number;
+}
+
+// ---------------------------------------------------------------- casa do jogador
+export interface HomeItem {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  /** R$ milhões (por temporada nos profissionais). */
+  price: number;
+  perSeason: boolean;
+  owned: boolean;
+  affordable: boolean;
+  effect: string;
+  /** Precisa de outro item antes. */
+  locked: string | null;
+}
+
+export interface HomeView {
+  money: number;
+  /** Custo por temporada dos profissionais contratados. */
+  upkeep: number;
+  note: string;
+  items: HomeItem[];
 }

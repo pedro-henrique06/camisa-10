@@ -6,6 +6,7 @@ import { api } from '@/api/client';
 import type { ActionType, GameView } from '@/api/types';
 import { CareerTabs, type CareerTab } from '@/components/CareerTabs';
 import { Hud } from '@/components/Hud';
+import { HomeShop } from '@/components/HomeShop';
 import { TrophyRoom } from '@/components/TrophyRoom';
 import { Screen } from '@/components/Screen';
 import { Btn, Card, Eyebrow, H2, haptic, P, PressableScale } from '@/components/ui';
@@ -74,6 +75,11 @@ export default function CareerScreen() {
     try {
       const next = await api.act(view.id, view.version, type, index, power, clubId);
       setView(next);
+      // comprar para a casa: fica na aba Jogador
+      if (type === 'Buy') {
+        haptic.success();
+        return;
+      }
       // toda ação leva de volta para a aba Hoje, onde a próxima decisão aparece
       setTab('hoje');
       // oferecer-se a um clube: a resposta aparece ali mesmo, no fim do mercado
@@ -207,6 +213,9 @@ export default function CareerScreen() {
       )}
       {tab === 'calendario' && view.calendar && <SeasonPage cal={view.calendar} />}
       {tab === 'tabela' && view.calendar && <TablePage cal={view.calendar} />}
+      {tab === 'jogador' && view.hud.home && view.status === 'Active' && (
+        <HomeShop home={view.hud.home} busy={busy} onBuy={(item) => act('Buy', undefined, undefined, item)} />
+      )}
       {tab === 'jogador' && view.hud.trophies && <TrophyRoom room={view.hud.trophies} />}
       {tab === 'jogador' && <PlayerExtras view={view} />}
       {tab === 'hoje' && (
