@@ -8,8 +8,11 @@ import type {
   ClubSearchResult,
   CountrySummary,
   CountryView,
+  DuelView,
   GameView,
   HistoryView,
+  MesaSummary,
+  MesaView,
   MetaView,
 } from './types';
 
@@ -129,4 +132,22 @@ export const api = {
   country: (iso: string) => request<CountryView>(`/api/world/${encodeURIComponent(iso)}`),
   searchClubs: (q: string) => request<ClubSearchResult[]>(`/api/world/search?q=${encodeURIComponent(q)}`),
   remove: (id: string) => request<void>(`/api/careers/${id}`, { method: 'DELETE' }),
+
+  // ---------------------------------------------------------------- mesa com amigos
+  mesas: () => request<MesaSummary[]>('/api/mesas'),
+  createMesa: (name: string, playerName: string) =>
+    request<MesaView>('/api/mesas', { method: 'POST', body: JSON.stringify({ name, playerName }) }),
+  joinMesa: (code: string, playerName: string) =>
+    request<MesaView>('/api/mesas/join', { method: 'POST', body: JSON.stringify({ code, playerName }) }),
+  mesa: (id: string) => request<MesaView>(`/api/mesas/${id}`),
+  createMesaCareer: (mesaId: string, body: { name: string; club: string; nation: string; position: string }) =>
+    request<GameView>(`/api/mesas/${mesaId}/careers`, { method: 'POST', body: JSON.stringify(body) }),
+  setSync: (mesaId: string, sync: boolean) =>
+    request<MesaView>(`/api/mesas/${mesaId}/sync`, { method: 'POST', body: JSON.stringify({ sync }) }),
+  challenge: (mesaId: string, opponentPlayerId: string) =>
+    request<DuelView>(`/api/mesas/${mesaId}/duels`, { method: 'POST', body: JSON.stringify({ opponentPlayerId }) }),
+  duel: (id: string) => request<DuelView>(`/api/duels/${id}`),
+  duelChoose: (id: string, index: number) =>
+    request<DuelView>(`/api/duels/${id}/choose`, { method: 'POST', body: JSON.stringify({ index }) }),
+  duelAuto: (id: string) => request<DuelView>(`/api/duels/${id}/auto`, { method: 'POST' }),
 };

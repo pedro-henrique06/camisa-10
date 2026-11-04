@@ -8,7 +8,7 @@ import { CareerTabs, type CareerTab } from '@/components/CareerTabs';
 import { Hud } from '@/components/Hud';
 import { TrophyRoom } from '@/components/TrophyRoom';
 import { Screen } from '@/components/Screen';
-import { Btn, Card, P } from '@/components/ui';
+import { Btn, Card, Eyebrow, H2, P, PressableScale } from '@/components/ui';
 import { Calendar, SeasonPage, TablePage } from '@/phases/Calendar';
 import {
   DecisionCard,
@@ -53,6 +53,18 @@ export default function CareerScreen() {
       alive = false;
     };
   }, [id]);
+
+  // mesa: enquanto espera um amigo chegar na data, atualiza a cada 4 segundos
+  const waitingNow = (view?.phase === 'Calendar' || view?.phase === 'SeasonSummary') && (view?.mesa?.waitingFor.length ?? 0) > 0;
+  useEffect(() => {
+    if (!waitingNow) return;
+    const timer = setInterval(async () => {
+      try {
+        setView(await api.get(id));
+      } catch {}
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [waitingNow, id]);
 
   const act = async (type: ActionType, index?: number, power?: number) => {
     if (!view || inFlight.current) return;
@@ -101,6 +113,8 @@ export default function CareerScreen() {
   }
 
   const next = () => act('Continue');
+  // mesa: esperando um amigo chegar nesta data
+  const waiting = view.phase === 'Calendar' || view.phase === 'SeasonSummary' ? view.mesa?.waitingFor ?? [] : [];
   const choose = (i: number, power?: number) => act('Choose', i, power);
   // Remonta a tela a cada nova versão para reiniciar as animações.
   const key = `${view.phase}-${view.version}`;
@@ -109,7 +123,14 @@ export default function CareerScreen() {
   let footer: ReactNode = null;
   switch (view.phase) {
     case 'Calendar':
-      footer = <Btn primary label={view.calendar?.nextDate ? `Ir para ${view.calendar.nextDate}  ›` : `Começar o dia ${view.calendar?.nextDay ?? ''}  ›`} onPress={next} busy={busy} />;
+      footer = waiting.length ? (
+        <Btn label={`⏳  Esperando ${waiting.join(', ')}…`} onPress={load} disabled={busy} />
+      ) : (
+        <Btn primary label={view.calendar?.nextDate ? `Ir para ${view.calendar.nextDate}  ›` : `Começar o dia ${view.calendar?.nextDay ?? ''}  ›`} onPress={next} busy={busy} />
+      );
+      break;
+    case 'Duel':
+      footer = <Btn primary label="Ver o resultado do duelo  ›" onPress={next} busy={busy} />;
       break;
     case 'Result':
       footer = <Btn primary label="Continuar  ›" onPress={next} busy={busy} />;
@@ -118,7 +139,11 @@ export default function CareerScreen() {
       footer = <Btn primary label="Começar a carreira profissional  ›" onPress={next} busy={busy} />;
       break;
     case 'SeasonSummary':
-      footer = <Btn primary label="Próxima temporada  ›" onPress={next} busy={busy} />;
+      footer = waiting.length ? (
+        <Btn label={`⏳  Esperando ${waiting.join(', ')} fechar a temporada…`} onPress={load} disabled={busy} />
+      ) : (
+        <Btn primary label="Próxima temporada  ›" onPress={next} busy={busy} />
+      );
       break;
     case 'Decision':
       footer = (
@@ -139,11 +164,11 @@ export default function CareerScreen() {
     scroll.current?.scrollTo({ y: 0, animated: false });
   };
   // a aba Hoje ganha um aviso quando há uma decisão esperando e o jogador está em outra aba
-  const waiting = view.phase !== 'Calendar';
+  const pending = view.phase !== 'Calendar';
   const bottom = (
     <View style={{ gap: 8 }}>
       {footer}
-      <CareerTabs tab={tab} onChange={changeTab} alert={waiting} />
+      <CareerTabs tab={tab} onChange={changeTab} alert={pending} />
     </View>
   );
 
@@ -171,6 +196,31 @@ export default function CareerScreen() {
       {tab === 'jogador' && <PlayerExtras view={view} />}
       {tab === 'hoje' && (
         <>
+          {view.mesa && (
+            <PressableScale
+              onPress={() => router.push({ pathname: '/mesa/[id]', params: { id: view.mesa!.id } })}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: t.line, backgroundColor: t.card, borderRadius: 12, padding: 10, marginBottom: 12 }}
+            >
+              <Text style={{ fontSize: 18 }}>🎲</Text>
+              <Text style={{ flex: 1, color: t.ink, fontFamily: font.semibold }} numberOfLines={1}>
+                {view.mesa.name} · {view.mesa.friends.filter((f) => !f.me).map((f) => `${f.name} (${f.date ?? 'início'})`).join(', ') || 'chame os amigos'}
+              </Text>
+              <Text style={{ color: t.acc, fontFamily: font.bold }}>Mesa ›</Text>
+            </PressableScale>
+          )}
+          {view.phase === 'Duel' && view.duel && (
+            <Card accent={t.acc}>
+              <Eyebrow>Clássico da Mesa · {view.duel.competition}</Eyebrow>
+              <H2>Contra {view.duel.opponentName}</H2>
+              <P>
+                O jogo da rodada é contra o {view.duel.opponentClub}, de {view.duel.opponentName}. Desta vez a decisão é dos dois: 6 lances, um
+                ataca e o outro tenta adivinhar a jogada.
+              </P>
+              {view.duel.duelId && (
+                <Btn primary label="Jogar o duelo  ⚔️" onPress={() => router.push({ pathname: '/duel/[id]', params: { id: view.duel!.duelId! } })} />
+              )}
+            </Card>
+          )}
           {view.phase === 'Calendar' && view.calendar && <Calendar key={key} cal={view.calendar} />}
           {(view.phase === 'Event' || view.phase === 'Penalty') && view.event && (
             <EventCard key={key} ev={view.event} onChoose={choose} busy={busy} />

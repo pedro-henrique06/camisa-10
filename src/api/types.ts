@@ -5,6 +5,7 @@ export type Phase =
   | 'Event'
   | 'Penalty'
   | 'Result'
+  | 'Duel'
   | 'Market'
   | 'Swap'
   | 'Promotion'
@@ -323,6 +324,115 @@ export interface GameView {
   season: SeasonView | null;
   decision: { age: number } | null;
   final: FinalView | null;
+  /** Clássico da Mesa marcado para hoje (fase Duel). */
+  duel?: { duelId: string | null; opponentName: string; opponentClub: string; home: boolean; competition: string } | null;
+  /** Mesa da carreira: amigos e quem falta chegar na data. */
+  mesa?: MesaStatus | null;
+}
+
+export interface MesaFriend {
+  name: string;
+  club: string | null;
+  date: string | null;
+  season: number;
+  seasonDay: number;
+  position: number;
+  overall: number;
+  phase: string;
+  me: boolean;
+}
+
+export interface MesaStatus {
+  id: string;
+  name: string;
+  code: string;
+  sync: boolean;
+  waitingFor: string[];
+  friends: MesaFriend[];
+}
+
+export interface MesaSummary {
+  id: string;
+  code: string;
+  name: string;
+  members: number;
+  updatedAt: string;
+}
+
+export interface DuelSummary {
+  id: string;
+  kind: 'league' | 'friendly';
+  competition: string;
+  home: string;
+  homeClub: string;
+  away: string;
+  awayClub: string;
+  homeGoals: number;
+  awayGoals: number;
+  finished: boolean;
+  mine: boolean;
+  myTurn: boolean;
+  createdAt: string;
+}
+
+export interface MesaView {
+  id: string;
+  code: string;
+  name: string;
+  sync: boolean;
+  isOwner: boolean;
+  members: { playerId: string; name: string; me: boolean; careerId: string | null; career: MesaFriend | null; badge: Badge | null; titles: number; goals: number }[];
+  feed: { at: string; icon: string; text: string }[];
+  duels: DuelSummary[];
+}
+
+export interface DuelSide {
+  name: string;
+  club: string;
+  badge: Badge;
+  position: string;
+  goals: number;
+  me: boolean;
+}
+
+export interface DuelMoment {
+  minute: number;
+  attacker: 'home' | 'away';
+  attackLabel: string;
+  defenseLabel: string;
+  attackRoll: number;
+  attackTotal: number;
+  defenseRoll: number;
+  defenseTotal: number;
+  goal: boolean;
+  read: boolean;
+  text: string;
+  homeGoals: number;
+  awayGoals: number;
+  autoPicked: 'home' | 'away' | null;
+}
+
+/** Duelo da Mesa visto por um dos amigos. */
+export interface DuelView {
+  id: string;
+  kind: 'league' | 'friendly';
+  competition: string;
+  finished: boolean;
+  mySide: 'home' | 'away';
+  home: DuelSide;
+  away: DuelSide;
+  current: number;
+  total: number;
+  turn: {
+    minute: number;
+    role: 'attack' | 'defense';
+    options: { label: string; attribute: string; attributeName: string; value: number; bonus: number }[];
+    myChoice: number | null;
+    opponentChose: boolean;
+  } | null;
+  history: DuelMoment[];
+  /** Segundos até poder decidir pelo amigo (0 = já pode). */
+  autoPickIn: number | null;
 }
 
 export interface HistoryView {
