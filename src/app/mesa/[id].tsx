@@ -1,9 +1,9 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Share, StyleSheet, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Share, StyleSheet, Text, View } from 'react-native';
 
 import { api } from '@/api/client';
-import type { MesaView } from '@/api/types';
+import type { MesaMode, MesaView } from '@/api/types';
 import { Badge } from '@/components/art';
 import { Screen } from '@/components/Screen';
 import { Btn, Card, Eyebrow, H1, P, PressableScale } from '@/components/ui';
@@ -70,9 +70,10 @@ export default function MesaScreen() {
     }
   };
 
-  const toggleSync = async (v: boolean) => {
+  const changeMode = async (mode: MesaMode) => {
+    if (mode === mesa.mode) return;
     try {
-      setMesa(await api.setSync(mesa.id, v));
+      setMesa(await api.setMode(mesa.id, mode));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -97,13 +98,25 @@ export default function MesaScreen() {
           <Btn small icon="📤" label="Compartilhar" onPress={share} />
         </View>
         <View style={[styles.syncRow, { borderTopColor: t.line }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: t.ink, fontFamily: font.bold }}>Calendário junto</Text>
-            <Text style={{ color: t.mut, fontFamily: font.regular, fontSize: 13 }}>
-              {mesa.sync ? 'Ninguém passa da data em que um amigo ainda está.' : 'Cada um joga no seu ritmo.'}
-            </Text>
-          </View>
-          <Switch value={mesa.sync} onValueChange={toggleSync} disabled={!mesa.isOwner} />
+          <Text style={[styles.section, { color: t.mut, marginBottom: 0 }]}>RITMO DA MESA{mesa.isOwner ? '' : ' (quem criou a mesa escolhe)'}</Text>
+          {MODES.map((m) => {
+            const on = mesa.mode === m.key;
+            return (
+              <PressableScale
+                key={m.key}
+                onPress={() => changeMode(m.key)}
+                disabled={!mesa.isOwner}
+                style={[styles.mode, { borderColor: on ? t.acc : t.line, backgroundColor: on ? t.accSoft : t.cardHi, opacity: !mesa.isOwner && !on ? 0.6 : 1 }]}
+              >
+                <Text style={{ fontSize: 20 }}>{m.icon}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: on ? t.acc : t.ink, fontFamily: font.bold }}>{m.title}</Text>
+                  <Text style={{ color: t.mut, fontFamily: font.regular, fontSize: 13 }}>{m.text}</Text>
+                </View>
+                {on && <Text style={{ color: t.acc, fontFamily: font.bold }}>✓</Text>}
+              </PressableScale>
+            );
+          })}
         </View>
       </Card>
 
@@ -199,6 +212,12 @@ export default function MesaScreen() {
   );
 }
 
+const MODES: { key: MesaMode; icon: string; title: string; text: string }[] = [
+  { key: 'turno', icon: '✋', title: 'Avançar junto', text: 'Cada um aperta Pronto ao terminar o dia. A data passa para todos de uma vez quando o último fica pronto.' },
+  { key: 'junto', icon: '🗓️', title: 'Calendário junto', text: 'Ninguém passa da data em que um amigo ainda está. Quem chega antes espera.' },
+  { key: 'livre', icon: '🏃', title: 'Cada um no seu ritmo', text: 'Sem espera. Os clássicos viram duelo quando os dois chegarem na data.' },
+];
+
 /** "agora", "5 min", "2 h", "3 d". */
 function ago(at: string) {
   const s = (Date.now() - new Date(at).getTime()) / 1000;
@@ -211,7 +230,8 @@ function ago(at: string) {
 const styles = StyleSheet.create({
   section: { fontFamily: font.bold, fontSize: 11, letterSpacing: 1.2, marginBottom: 8 },
   codeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  syncRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderTopWidth: 1, marginTop: 10, paddingTop: 10 },
+  syncRow: { gap: 8, borderTopWidth: 1, marginTop: 10, paddingTop: 10 },
+  mode: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 12, padding: 10 },
   member: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 12, padding: 10, marginBottom: 6 },
   duel: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 12, padding: 10, marginBottom: 6 },
   past: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },

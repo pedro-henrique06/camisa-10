@@ -127,7 +127,18 @@ export default function CareerScreen() {
   let footer: ReactNode = null;
   switch (view.phase) {
     case 'Calendar':
-      footer = waiting.length ? (
+      footer = view.mesa?.mode === 'turno' ? (
+        view.mesa.ready ? (
+          <Btn label={`✅  Pronto · esperando ${waiting.join(', ') || 'a mesa'}…`} onPress={load} disabled={busy} />
+        ) : (
+          <Btn
+            primary
+            label={`✋  Pronto${view.calendar?.nextDate ? ` · ir para ${view.calendar.nextDate}` : ''}`}
+            onPress={next}
+            busy={busy}
+          />
+        )
+      ) : waiting.length ? (
         <Btn label={`⏳  Esperando ${waiting.join(', ')}…`} onPress={load} disabled={busy} />
       ) : (
         <Btn primary label={view.calendar?.nextDate ? `Ir para ${view.calendar.nextDate}  ›` : `Começar o dia ${view.calendar?.nextDay ?? ''}  ›`} onPress={next} busy={busy} />
@@ -207,7 +218,11 @@ export default function CareerScreen() {
             >
               <Text style={{ fontSize: 18 }}>🎲</Text>
               <Text style={{ flex: 1, color: t.ink, fontFamily: font.semibold }} numberOfLines={1}>
-                {view.mesa.name} · {view.mesa.friends.filter((f) => !f.me).map((f) => `${f.name} (${f.date ?? 'início'})`).join(', ') || 'chame os amigos'}
+                {view.mesa.name} ·{' '}
+                {view.mesa.friends
+                  .filter((f) => !f.me)
+                  .map((f) => (view.mesa!.mode === 'turno' ? `${f.ready ? '✅' : '⏳'} ${f.name}` : `${f.name} (${f.date ?? 'início'})`))
+                  .join(', ') || 'chame os amigos'}
               </Text>
               <Text style={{ color: t.acc, fontFamily: font.bold }}>Mesa ›</Text>
             </PressableScale>

@@ -14,6 +14,7 @@ import type {
   DuelView,
   GameView,
   HistoryView,
+  MesaMode,
   MesaSummary,
   MesaView,
   MetaView,
@@ -227,8 +228,9 @@ export const api = {
   mesa: (id: string) => request<MesaView>(`/api/mesas/${id}`),
   createMesaCareer: (mesaId: string, body: { name: string; club: string; nation: string; position: string }) =>
     request<GameView>(`/api/mesas/${mesaId}/careers`, { method: 'POST', body: JSON.stringify(body) }),
-  setSync: (mesaId: string, sync: boolean) =>
-    request<MesaView>(`/api/mesas/${mesaId}/sync`, { method: 'POST', body: JSON.stringify({ sync }) }),
+  /** Ritmo da mesa (só quem criou): livre, junto ou turno (avançar junto com o botão Pronto). */
+  setMode: (mesaId: string, mode: MesaMode) =>
+    request<MesaView>(`/api/mesas/${mesaId}/sync`, { method: 'POST', body: JSON.stringify({ sync: mode !== 'livre', mode }) }),
   challenge: (mesaId: string, opponentMemberId: string) =>
     request<DuelView>(`/api/mesas/${mesaId}/duels`, { method: 'POST', body: JSON.stringify({ opponentMemberId }) }),
   duel: (id: string) => request<DuelView>(`/api/duels/${id}`),
