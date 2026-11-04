@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
 import { api } from '@/api/client';
-import type { EventView, FinalView, MarketView, PositionOption, ResultView, SeasonView } from '@/api/types';
+import type { EventView, FinalView, MarketView, OfferView, PitchView, PositionOption, ResultView, SeasonView } from '@/api/types';
+import { ClubPicker, type PickedClub } from '@/components/ClubPicker';
 import { Armband, Badge, D20, GoldenBall, Trophy } from '@/components/art';
 import { Celebration } from '@/components/Celebration';
 import { PenaltyAim, PenaltyReplay } from '@/components/PenaltyScene';
@@ -268,7 +269,13 @@ function SeasonMatches({ matches }: { matches: NonNullable<SeasonView['report'][
 const TIER_STARS = (fee: number) => (fee >= 120 ? 5 : fee >= 70 ? 4 : fee >= 35 ? 3 : fee >= 15 ? 2 : 1);
 
 /** Janela de transferências. */
-export function MarketCard({ m, onChoose, onStay, busy }: { m: MarketView; onChoose: (i: number) => void; onStay: () => void } & Act) {
+export function MarketCard({
+  m,
+  onChoose,
+  onStay,
+  onOffer,
+  busy,
+}: { m: MarketView; onChoose: (i: number) => void; onStay: () => void; onOffer: (clubId: string, ask: number) => void } & Act) {
   const t = useTheme();
   return (
     <Card>
@@ -276,8 +283,15 @@ export function MarketCard({ m, onChoose, onStay, busy }: { m: MarketView; onCho
       <H2>Janela de transferências</H2>
       <P muted>{m.intro}</P>
       {m.offers.map((o, i) => (
-        <FadeIn key={o.index} delay={100 + i * 80}>
-          <PressableScale onPress={() => onChoose(o.index)} disabled={busy} style={[styles.offer, { backgroundColor: t.cardHi, borderColor: t.lineStrong }]}>
+        <FadeIn key={`${o.index}-${o.clubId}`} delay={100 + i * 80}>
+          <PressableScale
+            onPress={() => onChoose(o.index)}
+            disabled={busy}
+            style={[styles.offer, { backgroundColor: o.pitched ? t.accSoft : t.cardHi, borderColor: o.pitched ? t.acc : t.lineStrong }]}
+          >
+            {o.pitched && o.note && (
+              <Text style={{ color: t.acc, fontFamily: font.bold, fontSize: 12, letterSpacing: 0.4 }}>✉️ {o.note.toUpperCase()}</Text>
+            )}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <Badge badge={o.clubBadge} size={44} />
               <View style={{ flex: 1 }}>
@@ -300,13 +314,118 @@ export function MarketCard({ m, onChoose, onStay, busy }: { m: MarketView; onCho
               <OfferStat label="Transferência" value={`${o.fee} mi`} />
             </View>
             <Text style={{ color: t.mut, fontSize: 13, fontFamily: font.regular }}>
-              Rotina: {o.sessions === 2 ? 'treino em 2 períodos' : 'período único'} · foco {o.focusName}
+              Contrato de {o.contract} ano{o.contract === 1 ? '' : 's'} · rotina: {o.sessions === 2 ? 'treino em 2 períodos' : 'período único'} · foco{' '}
+              {o.focusName}
             </Text>
           </PressableScale>
         </FadeIn>
       ))}
+      <PitchSection m={m} onOffer={onOffer} onSign={() => onChoose(0)} busy={busy} />
       <Btn label={m.stayLabel} onPress={onStay} disabled={busy} icon={m.mode === 'bt' ? '↩' : '✍'} />
     </Card>
+  );
+}
+
+/** Resposta do clube: aceitou, contraproposta ou recusou. */
+function PitchReply({ p, offer, onSign, busy }: { p: PitchView; offer: OfferView | undefined; onSign: () => void } & Act) {
+  const t = useTheme();
+  const color = p.verdict === 'accept' ? t.good : p.verdict === 'counter' ? t.acc : t.bad;
+  const icon = p.verdict === 'accept' ? '✅' : p.verdict === 'counter' ? '🤝' : '❌';
+  return (
+    <FadeIn>
+      <View style={[styles.pitchReply, { borderColor: color, backgroundColor: alpha(color, 0.12) }]}>
+        <Badge badge={p.badge} size={40} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={{ color, fontFamily: font.bold }}>
+            {icon} {p.title}
+          </Text>
+          <Text style={{ color: t.ink, fontFamily: font.regular, fontSize: 14 }}>{p.text}</Text>
+          {offer && (
+            <View style={{ marginTop: 6 }}>
+              <Btn
+                primary={p.verdict === 'accept'}
+                small
+                label={`${p.verdict === 'accept' ? 'Assinar' : 'Aceitar a contraproposta'}: R$ ${offer.salary} mil · ${offer.contract} ano${offer.contract === 1 ? '' : 's'}`}
+                onPress={onSign}
+                busy={busy}
+              />
+            </View>
+          )}
+        </View>
+      </View>
+    </FadeIn>
+  );
+}
+
+/** "Oferecer-se a um clube": escolhe o clube e quanto quer ganhar; o clube responde. */
+function PitchSection({ m, onOffer, onSign, busy }: { m: MarketView; onOffer: (clubId: string, ask: number) => void; onSign: () => void } & Act) {
+  const t = useTheme();
+  const [open, setOpen] = useState(false);
+  const [club, setClub] = useState<PickedClub | null>(null);
+  const [ask, setAsk] = useState(1);
+  const left = m.pitchesLeft;
+  return (
+    <View style={[styles.pitch, { borderColor: t.line, backgroundColor: t.cardHi }]}>
+      <Text style={{ color: t.ink, fontFamily: font.bold, fontSize: 16 }}>🎯 Oferecer-se a um clube</Text>
+      {m.pitch && (
+        <PitchReply
+          p={m.pitch}
+          offer={m.pitch.verdict !== 'reject' && m.offers[0]?.pitched && m.offers[0].clubId === m.pitch.clubId ? m.offers[0] : undefined}
+          onSign={onSign}
+          busy={busy}
+        />
+      )}
+      <Text style={{ color: t.mut, fontFamily: font.regular, fontSize: 13 }}>
+        {left > 0
+          ? `Escolha o clube em que você quer jogar. Ele analisa seu nível, idade, fase e o salário pedido, e aceita, faz contraproposta ou recusa. Clubes grandes são bem exigentes. Você ainda pode procurar ${left} clube${left === 1 ? '' : 's'} nesta janela.`
+          : 'Você já procurou 3 clubes nesta janela. Na próxima janela dá para tentar de novo.'}
+      </Text>
+      {left > 0 && !open && <Btn small icon="🔎" label="Escolher o clube" onPress={() => setOpen(true)} disabled={busy} />}
+      {left > 0 && open && (
+        <>
+          {club ? (
+            <View style={[styles.pickedClub, { borderColor: t.acc, backgroundColor: t.accSoft }]}>
+              <Badge badge={club.badge} size={36} />
+              <View style={{ flex: 1 }}>
+                <Text style={[condensed, { color: t.ink, fontSize: 20 }]}>{club.name}</Text>
+                <Text style={{ color: t.mut, fontFamily: font.medium, fontSize: 12 }}>
+                  {club.flag} {club.league} · {'★'.repeat(club.tier + 1)}
+                </Text>
+              </View>
+              <Btn small label="Trocar" onPress={() => setClub(null)} disabled={busy} />
+            </View>
+          ) : (
+            <ClubPicker selected={club} onPick={setClub} />
+          )}
+          {club && (
+            <>
+              <Text style={{ color: t.mut, fontFamily: font.bold, fontSize: 11, letterSpacing: 1.2, marginTop: 4 }}>QUANTO VOCÊ QUER GANHAR?</Text>
+              <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                {m.asks.map((label, i) => (
+                  <PressableScale
+                    key={label}
+                    onPress={() => setAsk(i)}
+                    style={[styles.askChip, { borderColor: ask === i ? t.acc : t.line, backgroundColor: ask === i ? t.accSoft : t.card }]}
+                  >
+                    <Text style={{ color: ask === i ? t.acc : t.ink, fontFamily: font.semibold, fontSize: 13 }}>{label}</Text>
+                  </PressableScale>
+                ))}
+              </View>
+              <Btn
+                primary
+                label={`Oferecer-me ao ${club.name}  ›`}
+                busy={busy}
+                onPress={() => {
+                  onOffer(club.id, ask);
+                  setClub(null);
+                  setOpen(false);
+                }}
+              />
+            </>
+          )}
+        </>
+      )}
+    </View>
   );
 }
 
@@ -497,6 +616,10 @@ const styles = StyleSheet.create({
   dice: { flexDirection: 'row', gap: 12, alignItems: 'center', borderWidth: 1.5, borderRadius: 14, padding: 10, marginTop: 12 },
   offer: { borderWidth: 1, borderRadius: 16, padding: 14, marginTop: 10, gap: 10 },
   offerStats: { flexDirection: 'row', gap: 8 },
+  pitchReply: { flexDirection: 'row', gap: 10, borderWidth: 1.5, borderRadius: 14, padding: 12, marginVertical: 8 },
+  pitch: { borderWidth: 1, borderRadius: 16, padding: 14, marginTop: 14, marginBottom: 10, gap: 8 },
+  pickedClub: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 12, padding: 10 },
+  askChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
   statGrid: { flexDirection: 'row', gap: 8, marginVertical: 8, flexWrap: 'wrap' },
   evo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderRadius: 14, padding: 12, marginVertical: 6 },
   news: { borderRadius: 12, padding: 12, marginVertical: 8 },

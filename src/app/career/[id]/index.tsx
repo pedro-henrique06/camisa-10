@@ -8,7 +8,7 @@ import { CareerTabs, type CareerTab } from '@/components/CareerTabs';
 import { Hud } from '@/components/Hud';
 import { TrophyRoom } from '@/components/TrophyRoom';
 import { Screen } from '@/components/Screen';
-import { Btn, Card, Eyebrow, H2, P, PressableScale } from '@/components/ui';
+import { Btn, Card, Eyebrow, H2, haptic, P, PressableScale } from '@/components/ui';
 import { Calendar, SeasonPage, TablePage } from '@/phases/Calendar';
 import {
   DecisionCard,
@@ -66,17 +66,21 @@ export default function CareerScreen() {
     return () => clearInterval(timer);
   }, [waitingNow, id]);
 
-  const act = async (type: ActionType, index?: number, power?: number) => {
+  const act = async (type: ActionType, index?: number, power?: number, clubId?: string) => {
     if (!view || inFlight.current) return;
     inFlight.current = true;
     setBusy(true);
     setError(null);
     try {
-      const next = await api.act(view.id, view.version, type, index, power);
+      const next = await api.act(view.id, view.version, type, index, power, clubId);
       setView(next);
       // toda ação leva de volta para a aba Hoje, onde a próxima decisão aparece
       setTab('hoje');
-      scroll.current?.scrollTo({ y: 0, animated: true });
+      // oferecer-se a um clube: a resposta aparece ali mesmo, no fim do mercado
+      if (type === 'Offer') {
+        haptic.tap();
+        setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 120);
+      } else scroll.current?.scrollTo({ y: 0, animated: true });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -227,7 +231,14 @@ export default function CareerScreen() {
           )}
           {view.phase === 'Result' && view.result && <ResultCard key={key} r={view.result} />}
           {view.phase === 'Market' && view.market && (
-            <MarketCard key={key} m={view.market} onChoose={choose} onStay={() => act('Stay')} busy={busy} />
+            <MarketCard
+              key={key}
+              m={view.market}
+              onChoose={choose}
+              onStay={() => act('Stay')}
+              onOffer={(clubId, ask) => act('Offer', ask, undefined, clubId)}
+              busy={busy}
+            />
           )}
           {view.phase === 'Swap' && view.swap && (
             <SwapCard key={key} current={view.swap.current} suggested={view.swap.suggested} onChoose={choose} busy={busy} />

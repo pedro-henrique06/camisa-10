@@ -13,7 +13,7 @@ export type Phase =
   | 'Decision'
   | 'Finished';
 
-export type ActionType = 'Continue' | 'Choose' | 'Stay' | 'SearchClub' | 'Retire';
+export type ActionType = 'Continue' | 'Choose' | 'Stay' | 'SearchClub' | 'Retire' | 'Offer';
 
 export interface Badge {
   primary: string;
@@ -211,6 +211,22 @@ export interface OfferView {
   focusName: string;
   league: string | null;
   division: string | null;
+  /** Anos de contrato. */
+  contract: number;
+  /** Veio de o jogador se oferecer ao clube. */
+  pitched: boolean;
+  note: string | null;
+}
+
+/** Resposta do clube a que o jogador se ofereceu. */
+export interface PitchView {
+  clubId: string | null;
+  club: string;
+  badge: Badge;
+  tier: number;
+  verdict: 'accept' | 'counter' | 'reject';
+  title: string;
+  text: string;
 }
 
 export interface MarketView {
@@ -219,6 +235,11 @@ export interface MarketView {
   releaseClause: number;
   offers: OfferView[];
   stayLabel: string;
+  /** Quantos clubes ainda dá para procurar nesta janela. */
+  pitchesLeft: number;
+  pitch: PitchView | null;
+  /** Pedidos de salário: menos, normal, mais. */
+  asks: string[];
 }
 
 export interface SeasonReport {
