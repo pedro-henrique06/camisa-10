@@ -58,10 +58,10 @@ export default function MesaScreen() {
   const share = () =>
     Share.share({ message: `Entra na minha mesa do Camisa 10! Código: ${mesa.code}` }).catch(() => {});
 
-  const challenge = async (playerId: string) => {
+  const challenge = async (memberId: string) => {
     setBusy(true);
     try {
-      const d = await api.challenge(mesa.id, playerId);
+      const d = await api.challenge(mesa.id, memberId);
       router.push({ pathname: '/duel/[id]', params: { id: d.id } });
     } catch (e) {
       setError((e as Error).message);
@@ -144,7 +144,7 @@ export default function MesaScreen() {
         {mesa.members.map((m) => {
           const c = m.career;
           return (
-            <View key={m.playerId} style={[styles.member, { borderColor: m.me ? t.acc : t.line, backgroundColor: m.me ? t.accSoft : t.cardHi }]}>
+            <View key={m.memberId} style={[styles.member, { borderColor: m.me ? t.acc : t.line, backgroundColor: m.me ? t.accSoft : t.cardHi }]}>
               {m.badge ? <Badge badge={m.badge} size={34} /> : <Text style={{ fontSize: 26 }}>👤</Text>}
               <View style={{ flex: 1 }}>
                 <Text style={{ color: t.ink, fontFamily: font.bold }}>
@@ -157,7 +157,7 @@ export default function MesaScreen() {
                     : 'Ainda não começou a carreira'}
                 </Text>
               </View>
-              {!m.me && c && me?.careerId && <Btn small icon="⚔️" label="Desafiar" onPress={() => challenge(m.playerId)} disabled={busy} />}
+              {!m.me && c && me?.careerId && <Btn small icon="⚔️" label="Desafiar" onPress={() => challenge(m.memberId)} disabled={busy} />}
             </View>
           );
         })}

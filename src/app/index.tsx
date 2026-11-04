@@ -1,8 +1,8 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { api, API_URL } from '@/api/client';
+import { api, API_URL, useAccount } from '@/api/client';
 import type { CareerSummary, MesaSummary, MetaView } from '@/api/types';
 import { Badge, Jersey } from '@/components/art';
 import { ClubPicker, type PickedClub } from '@/components/ClubPicker';
@@ -19,6 +19,7 @@ export default function Home() {
   const router = useRouter();
   // vindo da tela da mesa: o jogador é criado dentro dela (mesmo mundo dos amigos)
   const { mesa: mesaParam } = useLocalSearchParams<{ mesa?: string }>();
+  const account = useAccount();
   const [mesas, setMesas] = useState<MesaSummary[]>([]);
   const [mesaForm, setMesaForm] = useState<'create' | 'join' | null>(null);
   const [mesaName, setMesaName] = useState('');
@@ -54,6 +55,13 @@ export default function Home() {
       load();
     }, [load]),
   );
+
+  // entrou ou saiu da conta: as carreiras e as mesas mudam
+  useEffect(() => {
+    if (account === undefined) return;
+    const timer = setTimeout(load, 0);
+    return () => clearTimeout(timer);
+  }, [account, load]);
 
   const start = async () => {
     if (creating || !position) return;
@@ -198,6 +206,19 @@ export default function Home() {
   // ------------------------------------------------------------ capa
   return (
     <Screen>
+      {account !== undefined && (
+        <PressableScale
+          onPress={() => router.push('/conta')}
+          containerStyle={{ alignSelf: 'flex-end' }}
+          style={[styles.account, { borderColor: account ? t.line : t.acc, backgroundColor: account ? t.card : t.accSoft }]}
+          accessibilityLabel={account ? 'Minha conta' : 'Entrar ou criar conta'}
+        >
+          <Text style={{ fontSize: 14 }}>👤</Text>
+          <Text style={{ color: account ? t.ink : t.acc, fontFamily: font.bold, fontSize: 13 }} numberOfLines={1}>
+            {account ? account.name : 'Entrar na conta'}
+          </Text>
+        </PressableScale>
+      )}
       <FadeIn>
         <View style={styles.hero}>
           <Jersey size={140} />
@@ -234,13 +255,34 @@ export default function Home() {
             <P muted style={{ marginTop: 0 }}>
               Monte uma mesa: todos no mesmo mundo, o calendário andando junto e duelo de dados quando os clubes de vocês se enfrentam.
             </P>
+            {account === null && (
+              <PressableScale onPress={() => router.push('/conta')} style={[styles.hint, { borderColor: t.line, backgroundColor: t.cardHi }]}>
+                <Text style={{ fontSize: 16 }}>🔐</Text>
+                <Text style={{ flex: 1, color: t.mut, fontFamily: font.medium, fontSize: 13 }}>
+                  Crie uma conta para não perder as mesas e carreiras se trocar de celular.
+                </Text>
+                <Text style={{ color: t.acc, fontFamily: font.bold, fontSize: 13 }}>Criar ›</Text>
+              </PressableScale>
+            )}
             {mesaForm == null ? (
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <View style={{ flex: 1 }}>
-                  <Btn label="🎲  Criar mesa" onPress={() => setMesaForm('create')} />
+                  <Btn
+                    label="🎲  Criar mesa"
+                    onPress={() => {
+                      if (!name && account) setName(account.name);
+                      setMesaForm('create');
+                    }}
+                  />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Btn label="🔑  Entrar" onPress={() => setMesaForm('join')} />
+                  <Btn
+                    label="🔑  Entrar"
+                    onPress={() => {
+                      if (!name && account) setName(account.name);
+                      setMesaForm('join');
+                    }}
+                  />
                 </View>
               </View>
             ) : (
@@ -368,6 +410,8 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   hero: { alignItems: 'center', paddingTop: 12, paddingBottom: 12 },
+  account: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, maxWidth: 200 },
+  hint: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 12, padding: 10, marginBottom: 10 },
   section: { fontFamily: font.bold, fontSize: 12, letterSpacing: 1.4, marginTop: 24, marginBottom: 8 },
   resume: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 8 },
   gallery: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 14 },
