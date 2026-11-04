@@ -13,7 +13,7 @@ const KEY_BARS = ['m', 'p', 't', 'f'];
 
 type Props = {
   hud: HudView;
-  /** Só a linha do clube e o overall (usado no pênalti, para a cena caber na tela). */
+  /** Cabeçalho de uma linha: clube, data, posição na tabela e overall (no topo de todas as abas). */
   compact?: boolean;
   onHistory: () => void;
   onSearchClub?: () => void;
@@ -42,6 +42,11 @@ export function Hud({ hud, onHistory, onSearchClub, busy, compact }: Props) {
           </Text>
           <Text style={{ color: t.mut, fontFamily: font.medium, fontSize: 12 }} numberOfLines={1}>
             {hud.club} · {hud.age} anos · {hud.position}
+          </Text>
+          <Text style={{ color: t.acc, fontFamily: font.semibold, fontSize: 12 }} numberOfLines={1}>
+            {hud.date ?? 'Pré-temporada'}
+            {hud.leaguePosition ? ` · ${hud.leaguePosition}º de ${hud.leagueSize}` : ''}
+            {` · ⚽ ${hud.seasonGoals} · 🅰 ${hud.seasonAssists}`}
           </Text>
         </View>
         <View style={[styles.money, { backgroundColor: t.accSoft, alignItems: 'center' }]}>

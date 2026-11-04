@@ -133,15 +133,34 @@ export function Calendar({ cal }: { cal: CalendarView }) {
         </Animated.View>
       ))}
 
-      <Text style={[styles.section, { color: t.mut }]}>TEMPORADA</Text>
+      <View style={styles.legend}>
+        <View />
+        <Pressable onPress={toggleSkip} hitSlop={8}>
+          <Text style={{ color: t.acc, fontSize: 12, fontFamily: font.semibold }}>{skip ? 'Animação: desligada' : 'Animação: ligada'}</Text>
+        </Pressable>
+      </View>
+    </Card>
+  );
+}
+
+/** Aba Calendário: a temporada mês a mês, na cor de cada competição, e como cada competição está. */
+export function SeasonPage({ cal }: { cal: CalendarView }) {
+  const t = useTheme();
+  return (
+    <Card>
+      <Eyebrow>{cal.seasonSpan ?? 'Temporada'}</Eyebrow>
+      <H2>Calendário</H2>
+      <Text style={{ color: t.mut, fontFamily: font.medium, fontSize: 13, marginTop: -4, marginBottom: 10 }}>
+        Próxima data: {cal.nextDate ?? `dia ${cal.nextDay}`} · rodada {cal.nextDay} de {cal.total ?? cal.cells.length}
+      </Text>
       <View style={styles.months}>
         {byMonth(cal.cells).map((g) => (
           <View key={g.key} style={styles.monthRow}>
             <Text style={[styles.monthLabel, { color: t.mut }]}>{g.label}</Text>
             <View style={styles.monthCells}>
               {g.cells.map((c) => {
-                const now = c.day === shownDay;
-                const isDone = c.done || (done && c.day === cal.nextDay);
+                const now = c.day === cal.nextDay;
+                const isDone = c.done;
                 const col = c.kind ? compColor(t, c.kind) : null;
                 return (
                   <View
@@ -168,21 +187,6 @@ export function Calendar({ cal }: { cal: CalendarView }) {
         ))}
       </View>
 
-      {cal.table && (
-        <>
-          <Text style={[styles.section, { color: t.mut, marginTop: 14 }]}>
-            TABELA · {cal.table.league.toUpperCase()} · RODADA {cal.table.round} DE {cal.table.rounds}
-          </Text>
-          <LeagueTable rows={cal.table.rows} compact />
-          {cal.table.recent.length > 0 && (
-            <>
-              <Text style={[styles.section, { color: t.mut, marginTop: 12 }]}>ÚLTIMOS JOGOS</Text>
-              <RecentMatches matches={cal.table.recent} />
-            </>
-          )}
-        </>
-      )}
-
       <View style={styles.comps}>
         {cal.competitions.map((c) => {
           const col = compColor(t, c.kind);
@@ -205,13 +209,46 @@ export function Calendar({ cal }: { cal: CalendarView }) {
       </View>
       <View style={styles.legend}>
         <Text style={{ color: t.mut, fontSize: 12, fontFamily: font.medium }}>
-          <Text style={{ color: t.good }}>●</Text> janela de transferências
+          <Text style={{ color: t.good }}>●</Text> janela de transferências · ⚽ liga · 🏆 copa
         </Text>
-        <Pressable onPress={toggleSkip} hitSlop={8}>
-          <Text style={{ color: t.acc, fontSize: 12, fontFamily: font.semibold }}>{skip ? 'Animação: desligada' : 'Animação: ligada'}</Text>
-        </Pressable>
       </View>
     </Card>
+  );
+}
+
+/** Aba Tabela: a classificação da liga ao vivo e os últimos jogos. */
+export function TablePage({ cal }: { cal: CalendarView }) {
+  const t = useTheme();
+  const table = cal.table;
+  if (!table) {
+    return (
+      <Card>
+        <H2>Tabela</H2>
+        <Text style={{ color: t.mut, fontFamily: font.medium }}>A tabela aparece quando a liga começar.</Text>
+      </Card>
+    );
+  }
+  return (
+    <>
+      <Card>
+        <Eyebrow>
+          Rodada {table.round} de {table.rounds}
+        </Eyebrow>
+        <H2>{table.league}</H2>
+        {table.position > 0 && (
+          <Text style={{ color: t.mut, fontFamily: font.medium, fontSize: 13, marginTop: -4, marginBottom: 10 }}>
+            Seu clube está em <Text style={{ color: t.acc, fontFamily: font.bold }}>{table.position}º</Text> de {table.rows.length}
+          </Text>
+        )}
+        <LeagueTable rows={table.rows} />
+      </Card>
+      {table.recent.length > 0 && (
+        <Card>
+          <Text style={[styles.section, { color: t.mut, marginTop: 0 }]}>ÚLTIMOS JOGOS</Text>
+          <RecentMatches matches={table.recent} />
+        </Card>
+      )}
+    </>
   );
 }
 

@@ -28,9 +28,12 @@ export function Screen({
   children,
   footer,
   scrollRef,
+  footerSpace = 110,
 }: {
   children: ReactNode;
   footer?: ReactNode;
+  /** Espaço no fim da rolagem para o rodapé fixo não cobrir o conteúdo. */
+  footerSpace?: number;
   scrollRef?: React.RefObject<React.ComponentRef<typeof ScrollView> | null>;
 }) {
   const t = useTheme();
@@ -40,7 +43,7 @@ export function Screen({
       <SafeAreaView style={{ flex: 1 }} edges={footer ? ['top'] : ['top', 'bottom']}>
         <ScrollView
           ref={scrollRef}
-          contentContainerStyle={[styles.content, footer ? { paddingBottom: 110 } : null]}
+          contentContainerStyle={[styles.content, footer ? { paddingBottom: footerSpace } : null]}
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.inner}>{children}</View>

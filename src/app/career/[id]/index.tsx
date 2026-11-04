@@ -4,10 +4,11 @@ import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 
 import { api } from '@/api/client';
 import type { ActionType, GameView } from '@/api/types';
+import { CareerTabs, type CareerTab } from '@/components/CareerTabs';
 import { Hud } from '@/components/Hud';
 import { Screen } from '@/components/Screen';
 import { Btn, Card, P } from '@/components/ui';
-import { Calendar } from '@/phases/Calendar';
+import { Calendar, SeasonPage, TablePage } from '@/phases/Calendar';
 import {
   DecisionCard,
   EventCard,
@@ -28,6 +29,7 @@ export default function CareerScreen() {
   const [view, setView] = useState<GameView | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<CareerTab>('hoje');
   const scroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const inFlight = useRef(false);
 
@@ -59,6 +61,8 @@ export default function CareerScreen() {
     try {
       const next = await api.act(view.id, view.version, type, index, power);
       setView(next);
+      // toda ação leva de volta para a aba Hoje, onde a próxima decisão aparece
+      setTab('hoje');
       scroll.current?.scrollTo({ y: 0, animated: true });
     } catch (e) {
       setError((e as Error).message);
@@ -129,35 +133,82 @@ export default function CareerScreen() {
       break;
   }
 
+  const changeTab = (next: CareerTab) => {
+    setTab(next);
+    scroll.current?.scrollTo({ y: 0, animated: false });
+  };
+  // a aba Hoje ganha um aviso quando há uma decisão esperando e o jogador está em outra aba
+  const waiting = view.phase !== 'Calendar';
+  const bottom = (
+    <View style={{ gap: 8 }}>
+      {footer}
+      <CareerTabs tab={tab} onChange={changeTab} alert={waiting} />
+    </View>
+  );
+
   return (
-    <Screen scrollRef={scroll} footer={footer}>
-      <Hud
-        hud={view.hud}
-        compact={view.phase === 'Penalty' || (view.phase === 'Result' && !!view.result?.penalty)}
-        busy={busy}
-        onHistory={() => router.push({ pathname: '/career/[id]/history', params: { id: view.id } })}
-        onSearchClub={() => act('SearchClub')}
-      />
+    <Screen scrollRef={scroll} footer={bottom} footerSpace={footer ? 180 : 110}>
+      {tab === 'jogador' ? (
+        <Hud
+          hud={view.hud}
+          busy={busy}
+          onHistory={() => router.push({ pathname: '/career/[id]/history', params: { id: view.id } })}
+          onSearchClub={() => act('SearchClub')}
+        />
+      ) : (
+        <Hud hud={view.hud} compact onHistory={() => router.push({ pathname: '/career/[id]/history', params: { id: view.id } })} />
+      )}
       {error && (
         <Card accent={t.bad} style={{ marginBottom: 12 }}>
           <Text style={{ color: t.bad, fontFamily: font.semibold }}>{error}</Text>
           <Btn small label="Recarregar" onPress={load} />
         </Card>
       )}
-      {view.phase === 'Calendar' && view.calendar && <Calendar key={key} cal={view.calendar} />}
-      {(view.phase === 'Event' || view.phase === 'Penalty') && view.event && (
-        <EventCard key={key} ev={view.event} onChoose={choose} busy={busy} />
+      {tab === 'calendario' && view.calendar && <SeasonPage cal={view.calendar} />}
+      {tab === 'tabela' && view.calendar && <TablePage cal={view.calendar} />}
+      {tab === 'jogador' && <PlayerExtras view={view} />}
+      {tab === 'hoje' && (
+        <>
+          {view.phase === 'Calendar' && view.calendar && <Calendar key={key} cal={view.calendar} />}
+          {(view.phase === 'Event' || view.phase === 'Penalty') && view.event && (
+            <EventCard key={key} ev={view.event} onChoose={choose} busy={busy} />
+          )}
+          {view.phase === 'Result' && view.result && <ResultCard key={key} r={view.result} />}
+          {view.phase === 'Market' && view.market && (
+            <MarketCard key={key} m={view.market} onChoose={choose} onStay={() => act('Stay')} busy={busy} />
+          )}
+          {view.phase === 'Swap' && view.swap && (
+            <SwapCard key={key} current={view.swap.current} suggested={view.swap.suggested} onChoose={choose} busy={busy} />
+          )}
+          {view.phase === 'Promotion' && view.promotion && <PromotionCard key={key} club={view.promotion.club} />}
+          {view.phase === 'SeasonSummary' && view.season && <SeasonCard key={key} s={view.season} />}
+          {view.phase === 'Decision' && view.decision && <DecisionCard key={key} age={view.decision.age} />}
+        </>
       )}
-      {view.phase === 'Result' && view.result && <ResultCard key={key} r={view.result} />}
-      {view.phase === 'Market' && view.market && (
-        <MarketCard key={key} m={view.market} onChoose={choose} onStay={() => act('Stay')} busy={busy} />
-      )}
-      {view.phase === 'Swap' && view.swap && (
-        <SwapCard key={key} current={view.swap.current} suggested={view.swap.suggested} onChoose={choose} busy={busy} />
-      )}
-      {view.phase === 'Promotion' && view.promotion && <PromotionCard key={key} club={view.promotion.club} />}
-      {view.phase === 'SeasonSummary' && view.season && <SeasonCard key={key} s={view.season} />}
-      {view.phase === 'Decision' && view.decision && <DecisionCard key={key} age={view.decision.age} />}
     </Screen>
+  );
+}
+
+/** Aba Jogador: a carreira em números (o atalho para a evolução fica no cartão do jogador). */
+function PlayerExtras({ view }: { view: GameView }) {
+  const t = useTheme();
+  const h = view.hud;
+  const rows: [string, string][] = [
+    ['Temporada', `${h.seasonGoals} gols · ${h.seasonAssists} assistências`],
+    ['Carreira', `${h.goals} gols · ${h.assists} assistências`],
+    ['Clube', `${h.club}${h.league ? ' · ' + h.league : ''}`],
+    ['Contrato', h.base ? 'Categoria de base' : `${h.contract} ano${h.contract === 1 ? '' : 's'}`],
+    ['Salário', `R$ ${h.salary} mil/mês`],
+  ];
+  return (
+    <Card>
+      <Text style={{ color: t.mut, fontFamily: font.bold, fontSize: 11, letterSpacing: 1.2, marginBottom: 6 }}>CARREIRA</Text>
+      {rows.map(([k, v]) => (
+        <View key={k} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: t.line }}>
+          <Text style={{ color: t.mut, fontFamily: font.medium }}>{k}</Text>
+          <Text style={{ color: t.ink, fontFamily: font.semibold, flexShrink: 1, textAlign: 'right' }}>{v}</Text>
+        </View>
+      ))}
+    </Card>
   );
 }
