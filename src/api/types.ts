@@ -103,7 +103,8 @@ export interface EventView {
   match?: MatchView | null;
 }
 
-export type MatchLineType = 'info' | 'chance-for' | 'chance-against' | 'goal-for' | 'goal-against' | 'whistle' | 'decision';
+/** attack-for/attack-against: narração com quem está com a bola. */
+export type MatchLineType = 'info' | 'attack-for' | 'attack-against' | 'chance-for' | 'chance-against' | 'goal-for' | 'goal-against' | 'whistle' | 'decision';
 
 export interface MatchLine {
   minute: number;

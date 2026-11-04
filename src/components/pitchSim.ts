@@ -13,7 +13,7 @@ export type P = { x: number; y: number };
 type Focus = MatchView['focus'];
 
 /** Tempo de cada linha da narração. */
-export const STEP_MS = 1500;
+export const STEP_MS = 2200;
 
 /** 4-4-2 no próprio campo (x de 0 a 0,5, atacando para a direita). */
 const FORMATION: P[] = [
@@ -67,6 +67,8 @@ export type Sim = {
   kickoff: boolean;
   /** Pênalti: todo mundo na entrada da área, o goleiro na linha. */
   penalty: boolean;
+  /** Duelo da Mesa: bolinha do amigo no time adversário (-1 fora do duelo). */
+  friendSlot: number;
   now: number;
 };
 
@@ -80,9 +82,11 @@ function possession(line: MatchLine, i: number, focus: Focus): 0 | 1 {
   switch (line.type) {
     case 'goal-for':
     case 'chance-for':
+    case 'attack-for':
       return 0;
     case 'goal-against':
     case 'chance-against':
+    case 'attack-against':
       return 1;
     case 'decision':
       return focus === 'defense' || focus === 'pre' ? 1 : 0;
@@ -117,6 +121,9 @@ function targetFor(line: MatchLine, i: number, focus: Focus, team: 0 | 1): P {
       )[focus];
     case 'whistle':
       return { x: 0.5, y: 0.5 };
+    case 'attack-for':
+    case 'attack-against':
+      return { x: fwd(0.55 + r * 0.2), y: 0.15 + rnd(i * 3 + 1) * 0.7 };
     default:
       return { x: fwd(0.35 + r * 0.35), y: 0.15 + rnd(i * 3 + 1) * 0.7 };
   }
@@ -168,7 +175,7 @@ function planLine(sim: Sim, lines: MatchLine[], i: number, focus: Focus, mySlot:
 
   // passes rumo ao alvo
   const isShot = line.type.startsWith('goal') || line.type.startsWith('chance');
-  const passes = isShot ? 2 : line.type === 'decision' ? 1 : 1 + Math.floor(rnd(i * 11) * 2);
+  const passes = isShot ? 3 : line.type === 'decision' ? 2 : 2 + Math.floor(rnd(i * 11) * 2);
   let t = afterGoal ? 0.55 : 0.3;
   const span = (isShot ? 0.62 : 0.85) * step - t;
   for (let n = 0; n < passes; n++) {
@@ -176,13 +183,19 @@ function planLine(sim: Sim, lines: MatchLine[], i: number, focus: Focus, mySlot:
     const wp = last ? target : lerp(ballAt, target, (n + 1) / (passes + 0.5));
     const spot = { x: clamp(wp.x + (rnd(i * 13 + n) - 0.5) * 0.06, 0.06, 0.94), y: clamp(wp.y + (rnd(i * 19 + n) - 0.5) * 0.12, 0.06, 0.94) };
     // a jogada do jogador termina nele
-    const to: number = last && line.type === 'decision' && team === 0 ? mySlot : nearestMate(sim, team, spot, holder);
+    // no duelo, o lance termina com quem decidiu: você ataca, ou o amigo vem para cima de você
+    const finisher = sim.friendSlot >= 0 && isShot ? (team === 0 ? mySlot : sim.friendSlot) : -1;
+    const to: number =
+      last && finisher >= 0 ? finisher : last && line.type === 'decision' && team === 0 ? mySlot : nearestMate(sim, team, spot, holder === finisher ? null : holder);
     acts.push({ at: t, kind: 'pass', to, dest: spot });
     sim.runs.set(to, spot);
     holder = to;
     ballAt = spot;
     t += span / passes;
   }
+
+  // duelo: quem defende vai marcar quem decide o lance
+  if (sim.friendSlot >= 0 && isShot) sim.runs.set(team === 0 ? sim.friendSlot : mySlot, { x: clamp(target.x + (team === 0 ? 0.05 : -0.05)), y: clamp(target.y - 0.04) });
 
   // lance decisivo na defesa: o adversário vem com a bola e você vai para cima dele
   if (line.type === 'decision' && team === 1) sim.runs.set(mySlot, { x: clamp(target.x - 0.05), y: clamp(target.y + 0.05) });
@@ -206,7 +219,7 @@ function planLine(sim: Sim, lines: MatchLine[], i: number, focus: Focus, mySlot:
   sim.next = 0;
 }
 
-export function createSim(lines: MatchLine[], focus: Focus, mySlot: number): Sim {
+export function createSim(lines: MatchLine[], focus: Focus, mySlot: number, friendSlot = -1): Sim {
   const pos = Array.from({ length: 22 }, (_, k) => formationFor(teamOf(k) as 0 | 1, k % 11));
   const sim: Sim = {
     pos,
@@ -221,6 +234,7 @@ export function createSim(lines: MatchLine[], focus: Focus, mySlot: number): Sim
     runs: new Map(),
     kickoff: true,
     penalty: false,
+    friendSlot,
     now: 0,
   };
   // começa do jeito que o trecho anterior terminou: bola no ponto do primeiro lance
@@ -367,4 +381,14 @@ function tick(sim: Sim, dt: number, lines: MatchLine[], focus: Focus, mySlot: nu
     const move = Math.min(d, speed * dt, d * dt * 4.5);
     sim.pos[k] = { x: p.x + (dx / d) * move, y: p.y + (dy / d) * move };
   }
+}
+
+/**
+ * Quanto o time do jogador está atacando (0 a 1) para a barra de ataque: quem tem a bola e onde ela está.
+ */
+export function attackShare(sim: Sim): number {
+  const ball = sim.flight ? sim.flight.to : sim.ball;
+  if (sim.kickoff) return 0.5;
+  const v = 0.5 + (sim.team === 0 ? 0.12 : -0.12) + (ball.x - 0.5) * 0.7;
+  return Math.min(0.92, Math.max(0.08, v));
 }
