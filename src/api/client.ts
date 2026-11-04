@@ -1,9 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
 import type {
+  Account,
   ActionType,
+  AuthResponse,
   CareerSummary,
   ClubSearchResult,
   CountrySummary,
@@ -38,9 +41,15 @@ function resolveBaseUrl(): string {
 export const API_URL = resolveBaseUrl();
 
 const PLAYER_KEY = 'c10.player';
+const SESSION_KEY = 'c10.session';
 let playerId: string | null = null;
 
-/** Identificador anônimo deste aparelho, criado na primeira vez e guardado no AsyncStorage. */
+function newGuestId() {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  return 'p-' + Array.from({ length: 22 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+/** Identificador de convidado deste aparelho, criado na primeira vez e guardado no AsyncStorage. */
 async function getPlayerId(): Promise<string> {
   if (playerId) return playerId;
   let id: string | null = null;
@@ -50,14 +59,61 @@ async function getPlayerId(): Promise<string> {
     // armazenamento indisponível: segue com um id só desta sessão
   }
   if (!id) {
-    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    id = 'p-' + Array.from({ length: 22 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    id = newGuestId();
     try {
       await AsyncStorage.setItem(PLAYER_KEY, id);
     } catch {}
   }
   playerId = id;
   return id;
+}
+
+/** Troca o convidado do aparelho por um novo (depois de sair da conta, o antigo já é da conta). */
+async function resetPlayerId() {
+  playerId = newGuestId();
+  try {
+    await AsyncStorage.setItem(PLAYER_KEY, playerId);
+  } catch {}
+}
+
+// ---------------------------------------------------------------- sessão da conta
+type Session = { token: string; account: Account };
+let session: Session | null | undefined; // undefined: ainda não leu do armazenamento
+const listeners = new Set<(a: Account | null) => void>();
+
+async function getSession(): Promise<Session | null> {
+  if (session !== undefined) return session;
+  try {
+    const raw = await AsyncStorage.getItem(SESSION_KEY);
+    session = raw ? (JSON.parse(raw) as Session) : null;
+  } catch {
+    session = null;
+  }
+  return session;
+}
+
+async function setSession(s: Session | null) {
+  session = s;
+  try {
+    if (s) await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(s));
+    else await AsyncStorage.removeItem(SESSION_KEY);
+  } catch {}
+  listeners.forEach((l) => l(s?.account ?? null));
+}
+
+/** Conta de quem está jogando (null para convidado; undefined enquanto carrega). */
+export function useAccount(): Account | null | undefined {
+  const [account, setAccount] = useState<Account | null | undefined>(session === undefined ? undefined : (session?.account ?? null));
+  useEffect(() => {
+    let alive = true;
+    getSession().then((s) => alive && setAccount(s?.account ?? null));
+    listeners.add(setAccount);
+    return () => {
+      alive = false;
+      listeners.delete(setAccount);
+    };
+  }, []);
+  return account;
 }
 
 export class ApiError extends Error {
@@ -70,8 +126,11 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}, accept: number[] = []): Promise<T> {
+  const current = await getSession();
   const headers: Record<string, string> = {
+    // o id do convidado vai sempre: ao entrar ou criar a conta, as carreiras dele vêm junto
     'X-Player-Id': await getPlayerId(),
+    ...(current ? { Authorization: `Bearer ${current.token}` } : {}),
     ...(init.body ? { 'Content-Type': 'application/json' } : {}),
   };
   let res: Response;
@@ -98,6 +157,12 @@ async function request<T>(path: string, init: RequestInit = {}, accept: number[]
       const body = await res.json();
       msg = body.detail || body.title || msg;
     } catch {}
+    if (res.status === 401 && !path.startsWith('/api/auth/')) {
+      // sessão expirou, ou o id deste aparelho já é de uma conta: volta a ser um convidado novo
+      // (as carreiras continuam na conta, é só entrar de novo)
+      if (current) await setSession(null);
+      await resetPlayerId();
+    }
     throw new ApiError(msg, res.status);
   }
   return (await res.json()) as T;
@@ -133,6 +198,26 @@ export const api = {
   searchClubs: (q: string) => request<ClubSearchResult[]>(`/api/world/search?q=${encodeURIComponent(q)}`),
   remove: (id: string) => request<void>(`/api/careers/${id}`, { method: 'DELETE' }),
 
+  // ---------------------------------------------------------------- conta
+  register: async (email: string, password: string, name: string) => {
+    const r = await request<AuthResponse>('/api/auth/register', { method: 'POST', body: JSON.stringify({ email, password, name }) });
+    await setSession({ token: r.token, account: r.account });
+    return r;
+  },
+  login: async (email: string, password: string) => {
+    const r = await request<AuthResponse>('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+    await setSession({ token: r.token, account: r.account });
+    return r;
+  },
+  /** Sai da conta: este aparelho volta a ser um convidado novo (as carreiras ficam na conta). */
+  logout: async () => {
+    try {
+      await request<void>('/api/auth/logout', { method: 'POST' });
+    } catch {}
+    await setSession(null);
+    await resetPlayerId();
+  },
+
   // ---------------------------------------------------------------- mesa com amigos
   mesas: () => request<MesaSummary[]>('/api/mesas'),
   createMesa: (name: string, playerName: string) =>
@@ -144,8 +229,8 @@ export const api = {
     request<GameView>(`/api/mesas/${mesaId}/careers`, { method: 'POST', body: JSON.stringify(body) }),
   setSync: (mesaId: string, sync: boolean) =>
     request<MesaView>(`/api/mesas/${mesaId}/sync`, { method: 'POST', body: JSON.stringify({ sync }) }),
-  challenge: (mesaId: string, opponentPlayerId: string) =>
-    request<DuelView>(`/api/mesas/${mesaId}/duels`, { method: 'POST', body: JSON.stringify({ opponentPlayerId }) }),
+  challenge: (mesaId: string, opponentMemberId: string) =>
+    request<DuelView>(`/api/mesas/${mesaId}/duels`, { method: 'POST', body: JSON.stringify({ opponentMemberId }) }),
   duel: (id: string) => request<DuelView>(`/api/duels/${id}`),
   duelChoose: (id: string, index: number) =>
     request<DuelView>(`/api/duels/${id}/choose`, { method: 'POST', body: JSON.stringify({ index }) }),

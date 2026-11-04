@@ -381,7 +381,7 @@ export interface MesaView {
   name: string;
   sync: boolean;
   isOwner: boolean;
-  members: { playerId: string; name: string; me: boolean; careerId: string | null; career: MesaFriend | null; badge: Badge | null; titles: number; goals: number }[];
+  members: { memberId: string; name: string; me: boolean; careerId: string | null; career: MesaFriend | null; badge: Badge | null; titles: number; goals: number }[];
   feed: { at: string; icon: string; text: string }[];
   duels: DuelSummary[];
 }
@@ -547,4 +547,17 @@ export interface TrophyRoom {
     count: number;
     wins: { name: string; kind: string; season: number; age: number; team: string }[];
   }[];
+}
+
+// ---------------------------------------------------------------- conta
+export interface Account {
+  email: string;
+  name: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  account: Account;
+  /** Carreiras de convidado deste aparelho que vieram para a conta. */
+  imported: number;
 }
