@@ -361,15 +361,24 @@ export interface MesaFriend {
   overall: number;
   phase: string;
   me: boolean;
+  /** Modo Avançar junto: já apertou Pronto nesta data. */
+  ready: boolean;
 }
+
+/** livre: cada um no seu ritmo · junto: ninguém passa da data de um amigo · turno: avançar junto com o botão Pronto. */
+export type MesaMode = 'livre' | 'junto' | 'turno';
 
 export interface MesaStatus {
   id: string;
   name: string;
   code: string;
   sync: boolean;
+  /** Quem a mesa está esperando (no turno: quem ainda não apertou Pronto). */
   waitingFor: string[];
   friends: MesaFriend[];
+  mode: MesaMode;
+  /** No turno: você já apertou Pronto nesta data. */
+  ready: boolean;
 }
 
 export interface MesaSummary {
@@ -405,6 +414,7 @@ export interface MesaView {
   members: { memberId: string; name: string; me: boolean; careerId: string | null; career: MesaFriend | null; badge: Badge | null; titles: number; goals: number }[];
   feed: { at: string; icon: string; text: string }[];
   duels: DuelSummary[];
+  mode: MesaMode;
 }
 
 export interface DuelSide {
