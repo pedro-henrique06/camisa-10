@@ -425,6 +425,8 @@ function tick(sim: Sim, dt: number, lines: MatchLine[], focus: Focus, mySlot: nu
     sim.pos[k] = { x: p.x + (dx / d) * move, y: p.y + (dy / d) * move };
   }
   separate(sim);
+  // margem nas laterais para todos (inclusive quem corre atrás da bola colada na linha)
+  for (let k = 0; k < 22; k++) if (sim.pos[k].y < 0.08 || sim.pos[k].y > 0.94) sim.pos[k] = { x: sim.pos[k].x, y: clamp(sim.pos[k].y, 0.08, 0.94) };
 }
 
 /**
