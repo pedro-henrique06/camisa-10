@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { CalendarView } from '@/api/types';
+import { Bracket } from '@/components/Bracket';
+import { LeagueTable, RecentMatches } from '@/components/LeagueTable';
 import { Card, Eyebrow, H2 } from '@/components/ui';
 import { alpha, compColor, condensed, font, useTheme } from '@/theme';
 
@@ -132,15 +134,34 @@ export function Calendar({ cal }: { cal: CalendarView }) {
         </Animated.View>
       ))}
 
-      <Text style={[styles.section, { color: t.mut }]}>TEMPORADA</Text>
+      <View style={styles.legend}>
+        <View />
+        <Pressable onPress={toggleSkip} hitSlop={8}>
+          <Text style={{ color: t.acc, fontSize: 12, fontFamily: font.semibold }}>{skip ? 'Animação: desligada' : 'Animação: ligada'}</Text>
+        </Pressable>
+      </View>
+    </Card>
+  );
+}
+
+/** Aba Calendário: a temporada mês a mês, na cor de cada competição, e como cada competição está. */
+export function SeasonPage({ cal }: { cal: CalendarView }) {
+  const t = useTheme();
+  return (
+    <Card>
+      <Eyebrow>{cal.seasonSpan ?? 'Temporada'}</Eyebrow>
+      <H2>Calendário</H2>
+      <Text style={{ color: t.mut, fontFamily: font.medium, fontSize: 13, marginTop: -4, marginBottom: 10 }}>
+        Próxima data: {cal.nextDate ?? `dia ${cal.nextDay}`} · rodada {cal.nextDay} de {cal.total ?? cal.cells.length}
+      </Text>
       <View style={styles.months}>
         {byMonth(cal.cells).map((g) => (
           <View key={g.key} style={styles.monthRow}>
             <Text style={[styles.monthLabel, { color: t.mut }]}>{g.label}</Text>
             <View style={styles.monthCells}>
               {g.cells.map((c) => {
-                const now = c.day === shownDay;
-                const isDone = c.done || (done && c.day === cal.nextDay);
+                const now = c.day === cal.nextDay;
+                const isDone = c.done;
                 const col = c.kind ? compColor(t, c.kind) : null;
                 return (
                   <View
@@ -189,13 +210,91 @@ export function Calendar({ cal }: { cal: CalendarView }) {
       </View>
       <View style={styles.legend}>
         <Text style={{ color: t.mut, fontSize: 12, fontFamily: font.medium }}>
-          <Text style={{ color: t.good }}>●</Text> janela de transferências
+          <Text style={{ color: t.good }}>●</Text> janela de transferências · ⚽ liga · 🏆 copa
         </Text>
-        <Pressable onPress={toggleSkip} hitSlop={8}>
-          <Text style={{ color: t.acc, fontSize: 12, fontFamily: font.semibold }}>{skip ? 'Animação: desligada' : 'Animação: ligada'}</Text>
-        </Pressable>
       </View>
     </Card>
+  );
+}
+
+/** Aba Tabela: a liga ao vivo e, em cada copa, o grupo e a chave do mata-mata. */
+export function TablePage({ cal }: { cal: CalendarView }) {
+  const t = useTheme();
+  const [sel, setSel] = useState('league');
+  const table = cal.table;
+  const cups = cal.cups ?? [];
+  const cup = cups.find((c) => c.kind === sel);
+  const options = [{ kind: 'league' as const, name: table?.league ?? 'Liga' }, ...cups.map((c) => ({ kind: c.kind, name: c.name }))];
+  return (
+    <>
+      {options.length > 1 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+          {options.map((o) => {
+            const on = o.kind === (cup ? cup.kind : 'league');
+            const col = compColor(t, o.kind);
+            return (
+              <Pressable
+                key={o.kind}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                onPress={() => setSel(o.kind)}
+                style={[styles.chip, { borderColor: on ? col : t.line, backgroundColor: on ? alpha(col, 0.22) : t.card }]}
+              >
+                <View style={[styles.swatch, { backgroundColor: col }]} />
+                <Text style={{ color: on ? t.ink : t.mut, fontFamily: on ? font.bold : font.medium, fontSize: 13 }}>{o.name}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      {cup ? (
+        <>
+          <Card>
+            <Eyebrow color={cup.champion ? t.acc : cup.out ? t.bad : undefined}>{cup.status}</Eyebrow>
+            <H2>{cup.name}</H2>
+            {cup.group.length > 0 && (
+              <>
+                <Text style={[styles.section, { color: t.mut }]}>{(cup.groupName ?? 'GRUPO').toUpperCase()}</Text>
+                <LeagueTable rows={cup.group} zoneLabel="classificam para o mata-mata" />
+              </>
+            )}
+          </Card>
+          {cup.bracket.length > 0 && (
+            <Card>
+              <Text style={[styles.section, { color: t.mut, marginTop: 0 }]}>MATA-MATA</Text>
+              <Bracket cup={cup} />
+            </Card>
+          )}
+        </>
+      ) : !table ? (
+        <Card>
+          <H2>Tabela</H2>
+          <Text style={{ color: t.mut, fontFamily: font.medium }}>A tabela aparece quando a liga começar.</Text>
+        </Card>
+      ) : (
+        <>
+          <Card>
+            <Eyebrow>
+              Rodada {table.round} de {table.rounds}
+            </Eyebrow>
+            <H2>{table.league}</H2>
+            {table.position > 0 && (
+              <Text style={{ color: t.mut, fontFamily: font.medium, fontSize: 13, marginTop: -4, marginBottom: 10 }}>
+                Seu clube está em <Text style={{ color: t.acc, fontFamily: font.bold }}>{table.position}º</Text> de {table.rows.length}
+              </Text>
+            )}
+            <LeagueTable rows={table.rows} />
+          </Card>
+          {table.recent.length > 0 && (
+            <Card>
+              <Text style={[styles.section, { color: t.mut, marginTop: 0 }]}>ÚLTIMOS JOGOS</Text>
+              <RecentMatches matches={table.recent} />
+            </Card>
+          )}
+        </>
+      )}
+    </>
   );
 }
 
@@ -218,6 +317,8 @@ const styles = StyleSheet.create({
   bar: { position: 'absolute', left: 6, right: 6, bottom: 3, height: 3, borderRadius: 2 },
   comps: { gap: 6, marginTop: 10 },
   compRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, paddingHorizontal: 10, borderWidth: 1, borderRadius: 10 },
+  chips: { gap: 8, paddingBottom: 10 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
   swatch: { width: 10, height: 10, borderRadius: 3 },
   legend: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, flexWrap: 'wrap', gap: 6 },
 });

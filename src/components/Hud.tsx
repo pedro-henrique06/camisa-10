@@ -13,7 +13,7 @@ const KEY_BARS = ['m', 'p', 't', 'f'];
 
 type Props = {
   hud: HudView;
-  /** Só a linha do clube e o overall (usado no pênalti, para a cena caber na tela). */
+  /** Cabeçalho de uma linha: clube, data, posição na tabela e overall (no topo de todas as abas). */
   compact?: boolean;
   onHistory: () => void;
   onSearchClub?: () => void;
@@ -43,6 +43,11 @@ export function Hud({ hud, onHistory, onSearchClub, busy, compact }: Props) {
           <Text style={{ color: t.mut, fontFamily: font.medium, fontSize: 12 }} numberOfLines={1}>
             {hud.club} · {hud.age} anos · {hud.position}
           </Text>
+          <Text style={{ color: t.acc, fontFamily: font.semibold, fontSize: 12 }} numberOfLines={1}>
+            {hud.date ?? 'Pré-temporada'}
+            {hud.leaguePosition ? ` · ${hud.leaguePosition}º de ${hud.leagueSize}` : ''}
+            {` · ⚽ ${hud.seasonGoals} · 🅰 ${hud.seasonAssists}`}
+          </Text>
         </View>
         <View style={[styles.money, { backgroundColor: t.accSoft, alignItems: 'center' }]}>
           <Text style={{ color: t.acc, fontFamily: font.display, fontSize: 20 }}>{hud.overall}</Text>
@@ -65,6 +70,7 @@ export function Hud({ hud, onHistory, onSearchClub, busy, compact }: Props) {
           {hud.division && (
             <Text style={{ color: t.acc, fontFamily: font.bold, fontSize: 12 }}>
               {hud.clubCountryFlag} Série {hud.division}
+              {hud.leaguePosition ? <Text style={{ color: t.ink }}>{`  ·  ${hud.leaguePosition}º de ${hud.leagueSize}`}</Text> : null}
             </Text>
           )}
           <Text style={{ color: t.mut, fontFamily: font.medium, fontSize: 13 }} numberOfLines={2}>
@@ -86,8 +92,8 @@ export function Hud({ hud, onHistory, onSearchClub, busy, compact }: Props) {
           </Text>
           <SeasonProgress day={hud.seasonDay} matchDays={hud.matchDays} date={hud.date} />
           <Text style={{ color: t.mut, fontFamily: font.medium, fontSize: 13 }}>
-            ⚽ {hud.goals} gols · 🅰 {hud.assists} assist.
-            {hud.seasonGoals + hud.seasonAssists > 0 ? ` · +${hud.seasonGoals + hud.seasonAssists} na temp.` : ''}
+            ⚽ {hud.seasonGoals} gols · 🅰 {hud.seasonAssists} assist. na temporada
+            {hud.goals > hud.seasonGoals ? ` · ${hud.goals} gols na carreira` : ''}
           </Text>
         </View>
       </View>

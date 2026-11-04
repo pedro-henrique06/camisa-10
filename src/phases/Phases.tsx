@@ -7,6 +7,7 @@ import type { EventView, FinalView, MarketView, PositionOption, ResultView, Seas
 import { Armband, Badge, D20, GoldenBall, Trophy } from '@/components/art';
 import { Celebration } from '@/components/Celebration';
 import { PenaltyAim, PenaltyReplay } from '@/components/PenaltyScene';
+import { LeagueTable, RecentMatches } from '@/components/LeagueTable';
 import { MatchPitch } from '@/components/MatchPitch';
 import { PositionPitch } from '@/components/PositionPitch';
 import { Btn, Card, Chip, Eyebrow, FadeIn, H1, H2, haptic, money, P, PressableScale, Row, Stat } from '@/components/ui';
@@ -236,28 +237,30 @@ function LeagueResult({ r }: { r: SeasonView['report'] }) {
       </Pressable>
       {open && (
         <View style={{ marginTop: 8 }}>
-          {r.table.map((row) => (
-            <View
-              key={row.position}
-              style={[
-                styles.tableRow,
-                { borderLeftColor: row.zone === 'up' ? t.good : row.zone === 'down' ? t.bad : 'transparent' },
-                row.mine && { backgroundColor: t.accSoft },
-              ]}
-            >
-              <Text style={{ width: 26, color: t.mut, fontFamily: font.bold, fontSize: 13, textAlign: 'right' }}>{row.position}</Text>
-              <Text style={{ flex: 1, color: t.ink, fontFamily: row.mine ? font.bold : font.medium, fontSize: 14 }} numberOfLines={1}>
-                {row.club}
-                {row.mine ? '  ⭐' : ''}
-              </Text>
-              {row.zone && <Text style={{ color: row.zone === 'up' ? t.good : t.bad, fontSize: 12 }}>{row.zone === 'up' ? '▲' : '▼'}</Text>}
-            </View>
-          ))}
-          <Text style={{ color: t.mut, fontFamily: font.regular, fontSize: 12, marginTop: 6 }}>
-            <Text style={{ color: t.good }}>▲</Text> sobe de divisão · <Text style={{ color: t.bad }}>▼</Text> cai de divisão
-          </Text>
+          <LeagueTable rows={r.table} />
         </View>
       )}
+    </View>
+  );
+}
+
+/** Jogos da temporada no balanço (de onde saem jogos, gols, assistências e nota). */
+function SeasonMatches({ matches }: { matches: NonNullable<SeasonView['report']['matches']> }) {
+  const t = useTheme();
+  const [open, setOpen] = useState(false);
+  const w = matches.filter((m) => m.for > m.against).length;
+  const d = matches.filter((m) => m.for === m.against).length;
+  const l = matches.length - w - d;
+  const list = matches.map((m) => ({ ...m, result: (m.for > m.against ? 'V' : m.for < m.against ? 'D' : 'E') as 'V' | 'E' | 'D' }));
+  return (
+    <View style={[styles.cups, { borderColor: t.line }]}>
+      <Pressable onPress={() => setOpen((v) => !v)} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text style={{ color: t.mut, fontFamily: font.bold, fontSize: 11, letterSpacing: 1 }}>
+          SEUS JOGOS · {w}V {d}E {l}D
+        </Text>
+        <Text style={{ color: t.acc, fontFamily: font.semibold, fontSize: 12 }}>{open ? 'esconder ▲' : 'ver todos ▼'}</Text>
+      </Pressable>
+      {open && <RecentMatches matches={list} />}
     </View>
   );
 }
@@ -388,6 +391,7 @@ export function SeasonCard({ s }: { s: SeasonView }) {
         <Text style={{ color: t.ink, fontFamily: font.bold, fontSize: 16 }}>📰 {r.headline}</Text>
       </View>
       {r.leagueName && r.rank > 0 && <LeagueResult r={r} />}
+      {!!r.matches?.length && <SeasonMatches matches={r.matches} />}
       {!!r.cups?.length && (
         <View style={[styles.cups, { borderColor: t.line }]}>
           <Text style={{ color: t.mut, fontFamily: font.bold, fontSize: 11, letterSpacing: 1, marginBottom: 4 }}>COPAS</Text>
