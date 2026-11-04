@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { CalendarView } from '@/api/types';
+import { LeagueTable, RecentMatches } from '@/components/LeagueTable';
 import { Card, Eyebrow, H2 } from '@/components/ui';
 import { alpha, compColor, condensed, font, useTheme } from '@/theme';
 
@@ -166,6 +167,21 @@ export function Calendar({ cal }: { cal: CalendarView }) {
           </View>
         ))}
       </View>
+
+      {cal.table && (
+        <>
+          <Text style={[styles.section, { color: t.mut, marginTop: 14 }]}>
+            TABELA · {cal.table.league.toUpperCase()} · RODADA {cal.table.round} DE {cal.table.rounds}
+          </Text>
+          <LeagueTable rows={cal.table.rows} compact />
+          {cal.table.recent.length > 0 && (
+            <>
+              <Text style={[styles.section, { color: t.mut, marginTop: 12 }]}>ÚLTIMOS JOGOS</Text>
+              <RecentMatches matches={cal.table.recent} />
+            </>
+          )}
+        </>
+      )}
 
       <View style={styles.comps}>
         {cal.competitions.map((c) => {

@@ -65,6 +65,7 @@ export function Hud({ hud, onHistory, onSearchClub, busy, compact }: Props) {
           {hud.division && (
             <Text style={{ color: t.acc, fontFamily: font.bold, fontSize: 12 }}>
               {hud.clubCountryFlag} Série {hud.division}
+              {hud.leaguePosition ? <Text style={{ color: t.ink }}>{`  ·  ${hud.leaguePosition}º de ${hud.leagueSize}`}</Text> : null}
             </Text>
           )}
           <Text style={{ color: t.mut, fontFamily: font.medium, fontSize: 13 }} numberOfLines={2}>
@@ -86,8 +87,8 @@ export function Hud({ hud, onHistory, onSearchClub, busy, compact }: Props) {
           </Text>
           <SeasonProgress day={hud.seasonDay} matchDays={hud.matchDays} date={hud.date} />
           <Text style={{ color: t.mut, fontFamily: font.medium, fontSize: 13 }}>
-            ⚽ {hud.goals} gols · 🅰 {hud.assists} assist.
-            {hud.seasonGoals + hud.seasonAssists > 0 ? ` · +${hud.seasonGoals + hud.seasonAssists} na temp.` : ''}
+            ⚽ {hud.seasonGoals} gols · 🅰 {hud.seasonAssists} assist. na temporada
+            {hud.goals > hud.seasonGoals ? ` · ${hud.goals} gols na carreira` : ''}
           </Text>
         </View>
       </View>

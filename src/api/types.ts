@@ -70,6 +70,9 @@ export interface HudView {
   matchDays?: (CompetitionKind | null)[];
   /** Data atual (ex.: "18 de janeiro"); nula antes da primeira rodada. */
   date?: string | null;
+  /** Posição na tabela ao vivo (0 sem tabela). */
+  leaguePosition?: number;
+  leagueSize?: number;
 }
 
 export interface CheckView {
@@ -182,6 +185,8 @@ export interface CalendarView {
   total?: number;
   /** Ex.: "Temporada de janeiro a dezembro". */
   seasonSpan?: string;
+  /** Tabela da liga ao vivo e os últimos jogos. */
+  table?: { league: string; round: number; rounds: number; position: number; rows: TableRow[]; recent: MatchSummary[] } | null;
 }
 
 /** league (liga), state (estadual), cup (copa nacional), continental ou national (seleção). */
@@ -235,9 +240,40 @@ export interface SeasonReport {
   leagueSize: number;
   /** "up" (acesso), "down" (rebaixamento) ou nulo. */
   movement: 'up' | 'down' | null;
-  table: { position: number; club: string; mine: boolean; zone: 'up' | 'down' | null }[];
+  table: TableRow[];
   /** Copas da temporada (estadual, copa nacional, continental). */
   cups?: { kind: CompetitionKind; name: string; result: string; champion: boolean }[];
+  /** Jogos da temporada (placar, gols, assistências e nota). */
+  matches?: { kind: CompetitionKind; competition: string; opponent: string; home: boolean; for: number; against: number; goals: number; assists: number; rating: number }[];
+}
+
+/** Linha da tabela da liga. */
+export interface TableRow {
+  position: number;
+  club: string;
+  mine: boolean;
+  zone: 'up' | 'down' | null;
+  played?: number;
+  won?: number;
+  drawn?: number;
+  lost?: number;
+  goalsFor?: number;
+  goalsAgainst?: number;
+  points?: number;
+}
+
+/** Jogo já disputado. result: V (vitória), E (empate) ou D (derrota). */
+export interface MatchSummary {
+  kind: CompetitionKind;
+  competition: string;
+  opponent: string;
+  home: boolean;
+  for: number;
+  against: number;
+  goals: number;
+  assists: number;
+  rating: number;
+  result: 'V' | 'E' | 'D';
 }
 
 export interface SeasonView {
