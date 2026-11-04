@@ -26,7 +26,6 @@ const FORMATION: P[] = [
 /** Qual bolinha é o jogador, pela posição. */
 export const MY_SLOT: Record<string, number> = { Atacante: 9, Ponta: 5, Meia: 6, Volante: 7, Lateral: 1, Zagueiro: 2 };
 
-const GK = [0, 11];
 const PLAYER_SPEED = 0.2; // campos por segundo
 const RUN_SPEED = 0.3; // quem corre para receber ou para marcar
 const PASS_SPEED = 0.75;
@@ -251,30 +250,52 @@ export function createSim(lines: MatchLine[], focus: Focus, mySlot: number, frie
   return sim;
 }
 
-/** Lugar ideal de cada jogador agora: o time se desloca com a bola, e os mais perto vão nela. */
+/** Linha de cada jogador no 4-4-2: 0 zaga, 1 meio, 2 ataque (o goleiro é tratado à parte). */
+const LINE = [0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2];
+
+/**
+ * Lugar ideal de cada jogador agora, como num time de verdade: a zaga acompanha a bola a uma distância
+ * segura, o meio e o ataque ficam escalonados à frente dela, quem ataca abre o campo e quem defende fecha
+ * em direção à bola. "u" é a posição na direção do ataque do time (0 = o próprio gol, 1 = o gol adversário).
+ */
 function targetOf(sim: Sim, k: number, mySlot: number): P {
   const team = teamOf(k) as 0 | 1;
-  const base = formationFor(team, k % 11);
+  const slot = k % 11;
+  const base = formationFor(team, slot);
   const ball = sim.ball;
   if (sim.kickoff) return base;
   if (sim.penalty && k !== mySlot) {
     if (k === 11) return { x: 0.975, y: 0.5 };
     if (k === 0) return base;
-    return team === 1 ? { x: clamp(0.72 + rnd(k) * 0.06), y: 0.2 + ((k % 11) / 11) * 0.6 } : { x: clamp(0.7 + rnd(k + 5) * 0.06), y: 0.15 + ((k % 11) / 11) * 0.7 };
+    return team === 1 ? { x: clamp(0.72 + rnd(k) * 0.06), y: 0.2 + (slot / 11) * 0.6 } : { x: clamp(0.7 + rnd(k + 5) * 0.06), y: 0.15 + (slot / 11) * 0.7 };
   }
-  if (GK.includes(k)) return { x: base.x + (team === 0 ? Math.max(0, ball.x - 0.5) * 0.08 : -Math.max(0, 0.5 - ball.x) * 0.08), y: clamp(0.5 + (ball.y - 0.5) * 0.3) };
+  const toX = (u: number) => (team === 0 ? u : 1 - u);
+  const ballU = team === 0 ? ball.x : 1 - ball.x;
+  if (slot === 0) return { x: toX(0.035 + Math.max(0, ballU - 0.5) * 0.12), y: clamp(0.5 + (ball.y - 0.5) * 0.3, 0.38, 0.62) };
   if (sim.runs.has(k)) return sim.runs.get(k)!;
   const attacking = sim.team === team;
-  const dir = team === 0 ? 1 : -1;
-  // o bloco acompanha a bola; quem ataca sobe, quem defende recua
-  const shift = (ball.x - 0.5) * 0.55 + dir * (attacking ? 0.07 : -0.03);
-  const p = { x: clamp(base.x + (team === 0 ? 0.06 : -0.06) + shift, 0.06, 0.94), y: clamp(base.y + (ball.y - 0.5) * 0.28) };
+  // a linha de zaga segue a bola sem encostar nela; as outras linhas ficam a uma distância fixa
+  const defLine = attacking ? clamp(ballU - 0.36, 0.14, 0.55) : clamp(ballU - 0.22, 0.08, 0.42);
+  const gap = attacking ? 0.19 : 0.15;
+  const line = LINE[slot];
+  let u = defLine + line * gap;
+  if (line === 2) u = Math.min(u, attacking ? 0.88 : 0.6);
+  // laterais sobem quando o time ataca
+  if (attacking && (slot === 1 || slot === 4)) u += 0.07;
+  // largura: quem ataca abre o campo, quem defende fecha em direção à bola
+  const width = attacking ? 1.08 : 0.76;
+  // margem nas laterais: a bolinha (e o nome em cima dela) não fica cortada na borda do campo
+  const y = clamp(0.5 + (base.y - 0.5) * width + (ball.y - 0.5) * (attacking ? 0.16 : 0.32), 0.1, 0.92);
+  const p = { x: clamp(toX(u), 0.05, 0.95), y };
   // o jogador do usuário, quando o lance é dele, fica perto da bola
   if (k === mySlot && sim.holder !== k && attacking) return lerp(p, ball, 0.25);
   return p;
 }
 
-/** Os dois mais perto da bola, de cada time, vão nela (quem defende marca, quem ataca dá opção). */
+/**
+ * Quem vai na bola: do time que defende, o mais perto dá o bote e o segundo faz a cobertura atrás dele;
+ * do time que ataca, o mais perto se oferece ao lado (para o passe), sem encostar em quem conduz.
+ */
 function pressers(sim: Sim): Map<number, P> {
   const out = new Map<number, P>();
   if (sim.kickoff || sim.penalty) return out;
@@ -286,16 +307,38 @@ function pressers(sim: Sim): Map<number, P> {
       near.push({ k, d: dist(sim.pos[k], ball) });
     }
     near.sort((a, b) => a.d - b.d);
-    const defending = sim.team !== team;
-    const side = team === 0 ? -1 : 1; // quem defende fica entre a bola e o próprio gol
-    near.slice(0, defending ? 2 : 1).forEach(({ k }, n) => {
-      out.set(k, {
-        x: clamp(ball.x + side * (0.03 + n * 0.05)),
-        y: clamp(ball.y + (n ? 0.09 : 0.02) * (k % 2 ? 1 : -1)),
-      });
-    });
+    const back = team === 0 ? -1 : 1; // em direção ao próprio gol
+    if (sim.team !== team) {
+      const [first, second] = near;
+      if (first) out.set(first.k, { x: clamp(ball.x + back * 0.035), y: clamp(ball.y + (sim.pos[first.k].y < ball.y ? -0.02 : 0.02), 0.08, 0.94) });
+      if (second) out.set(second.k, { x: clamp(ball.x + back * 0.11), y: clamp(ball.y + (ball.y < 0.5 ? 0.09 : -0.09), 0.08, 0.94) });
+    } else if (near[0] && near[0].d < 0.3) {
+      const side = sim.pos[near[0].k].y < ball.y ? -1 : 1;
+      out.set(near[0].k, { x: clamp(ball.x - back * 0.06), y: clamp(ball.y + side * 0.14, 0.1, 0.92) });
+    }
   }
   return out;
+}
+
+/** Ninguém fica em cima de ninguém: bolinhas muito perto se afastam um pouco. */
+function separate(sim: Sim) {
+  const min = 0.034;
+  for (let i = 0; i < 22; i++) {
+    for (let j = i + 1; j < 22; j++) {
+      const a = sim.pos[i];
+      const b = sim.pos[j];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const d = Math.hypot(dx, dy);
+      if (d >= min || d === 0) continue;
+      const push = (min - d) / 2;
+      const ux = dx / d;
+      const uy = dy / d;
+      // quem está com a bola não é empurrado
+      if (i !== sim.holder) sim.pos[i] = { x: a.x - ux * push, y: a.y - uy * push };
+      if (j !== sim.holder) sim.pos[j] = { x: b.x + ux * push, y: b.y + uy * push };
+    }
+  }
 }
 
 /** Avança a simulação até o tempo `now` (ms), em passos curtos. */
@@ -381,6 +424,7 @@ function tick(sim: Sim, dt: number, lines: MatchLine[], focus: Focus, mySlot: nu
     const move = Math.min(d, speed * dt, d * dt * 4.5);
     sim.pos[k] = { x: p.x + (dx / d) * move, y: p.y + (dy / d) * move };
   }
+  separate(sim);
 }
 
 /**
