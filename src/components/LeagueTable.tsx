@@ -9,7 +9,7 @@ import { alpha, compColor, condensed, font, useTheme } from '@/theme';
  * acesso e rebaixamento. Com `compact`, mostra só as linhas em volta do clube do jogador e um botão
  * para abrir a tabela inteira.
  */
-export function LeagueTable({ rows, compact = false }: { rows: TableRow[]; compact?: boolean }) {
+export function LeagueTable({ rows, compact = false, zoneLabel }: { rows: TableRow[]; compact?: boolean; /** Texto da zona verde (ex.: "classifica"); sem ele, "sobe · cai". */ zoneLabel?: string }) {
   const t = useTheme();
   const [open, setOpen] = useState(!compact);
   const mine = rows.findIndex((r) => r.mine);
@@ -56,7 +56,16 @@ export function LeagueTable({ rows, compact = false }: { rows: TableRow[]; compa
       <View style={styles.foot}>
         {hasZones ? (
           <Text style={{ color: t.mut, fontFamily: font.regular, fontSize: 12 }}>
-            <Text style={{ color: t.good }}>▎</Text>sobe · <Text style={{ color: t.bad }}>▎</Text>cai
+            {zoneLabel ? (
+              <>
+                <Text style={{ color: t.good }}>▎</Text>
+                {zoneLabel}
+              </>
+            ) : (
+              <>
+                <Text style={{ color: t.good }}>▎</Text>sobe · <Text style={{ color: t.bad }}>▎</Text>cai
+              </>
+            )}
           </Text>
         ) : (
           <View />

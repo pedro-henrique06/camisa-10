@@ -187,6 +187,8 @@ export interface CalendarView {
   seasonSpan?: string;
   /** Tabela da liga ao vivo e os últimos jogos. */
   table?: { league: string; round: number; rounds: number; position: number; rows: TableRow[]; recent: MatchSummary[] } | null;
+  /** Copas: grupo do seu time e chave do mata-mata. */
+  cups?: CupView[];
 }
 
 /** league (liga), state (estadual), cup (copa nacional), continental ou national (seleção). */
@@ -396,4 +398,27 @@ export interface ClubSearchResult {
   tier: number;
   fictional: boolean;
   badge: Badge;
+}
+
+/** Copa: grupo (os 2 primeiros passam) e chave do mata-mata. */
+export interface CupView {
+  kind: CompetitionKind;
+  name: string;
+  status: string;
+  out: boolean;
+  champion: boolean;
+  groupName: string | null;
+  group: TableRow[];
+  bracket: { name: string; current: boolean; ties: BracketTie[] }[];
+}
+
+/** Confronto do mata-mata; winner: home, away ou nulo (ainda não jogado). */
+export interface BracketTie {
+  home: string;
+  away: string | null;
+  homeGoals: number | null;
+  awayGoals: number | null;
+  winner: 'home' | 'away' | null;
+  penalties: boolean;
+  mine: boolean;
 }
