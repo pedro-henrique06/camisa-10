@@ -85,6 +85,10 @@ export interface LoveView {
   years: number;
   cheats: number;
   milestones: { age: number; icon: string; text: string }[];
+  /** Bebê a caminho. */
+  expecting?: boolean;
+  /** Filhos (sem limite). */
+  children?: { name: string; sex: 'm' | 'f'; age: number; mother?: string | null; adopted: boolean }[];
 }
 
 export interface GossipItem {

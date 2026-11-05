@@ -60,6 +60,32 @@ export function LoveCard({ love }: { love: LoveView }) {
         </>
       )}
 
+      {(love.expecting || (love.children?.length ?? 0) > 0) && (
+        <View style={{ marginTop: 12 }}>
+          <Text style={[styles.sub, { color: t.mut }]}>FILHOS{love.children && love.children.length > 0 ? ` (${love.children.length})` : ''}</Text>
+          <View style={styles.kids}>
+            {love.children?.map((k, i) => (
+              <View key={`kid-${i}`} style={[styles.kid, { borderColor: t.line, backgroundColor: t.cardHi }]}>
+                <Text style={{ fontSize: 18 }}>{k.adopted ? '🧸' : k.age <= 2 ? '👶' : k.sex === 'f' ? '👧' : '👦'}</Text>
+                <View>
+                  <Text style={{ color: t.ink, fontFamily: font.semibold, fontSize: 13 }}>{k.name}</Text>
+                  <Text style={{ color: t.mut, fontFamily: font.medium, fontSize: 11 }}>
+                    {k.age === 0 ? 'recém-chegado' : `${k.age} ${k.age === 1 ? 'ano' : 'anos'}`}
+                    {k.adopted ? ' · adotado' : ''}
+                  </Text>
+                </View>
+              </View>
+            ))}
+            {love.expecting && (
+              <View style={[styles.kid, { borderColor: t.acc, backgroundColor: alpha(t.acc, 0.12), borderStyle: 'dashed' }]}>
+                <Text style={{ fontSize: 18 }}>🤰</Text>
+                <Text style={{ color: t.ink, fontFamily: font.semibold, fontSize: 13 }}>Bebê a caminho</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+
       {love.milestones.length > 0 && (
         <View style={{ marginTop: 12 }}>
           <Text style={[styles.sub, { color: t.mut }]}>SUA HISTÓRIA</Text>
@@ -122,5 +148,7 @@ const styles = StyleSheet.create({
   dot: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   milestone: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 5 },
   line: { position: 'absolute', left: 11, top: 24, width: 2, height: 14 },
+  kids: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  kid: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6 },
   news: { borderLeftWidth: 3, borderRadius: 8, padding: 8, marginBottom: 6 },
 });
