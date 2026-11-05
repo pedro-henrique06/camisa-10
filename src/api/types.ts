@@ -85,6 +85,19 @@ export interface HudView {
   gossip?: GossipItem[];
   /** Empresas e investimentos. */
   business?: BusinessView;
+  /** Origem, reputação e (no fim) o epílogo. */
+  story?: StoryView;
+}
+
+export interface StoryView {
+  origin?: string | null;
+  originName?: string | null;
+  originIcon?: string | null;
+  originText?: string | null;
+  tags: { icon: string; label: string; hint: string }[];
+  /** Eixos de −10 a +10. */
+  reputation: { key: string; low: string; high: string; value: number }[];
+  epilogue: string[];
 }
 
 export interface BusinessView {
