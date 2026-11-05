@@ -8,6 +8,7 @@ import { CareerTabs, type CareerTab } from '@/components/CareerTabs';
 import { Hud } from '@/components/Hud';
 import { BusinessPage } from '@/components/BusinessPage';
 import { HomeShop } from '@/components/HomeShop';
+import { StoryCard } from '@/components/StoryCard';
 import { GossipFeed, LoveCard } from '@/components/LoveLife';
 import { TrophyRoom } from '@/components/TrophyRoom';
 import { Screen } from '@/components/Screen';
@@ -110,6 +111,7 @@ export default function CareerScreen() {
   if (view.phase === 'Finished' && view.final) {
     return (
       <Screen scrollRef={scroll}>
+        {view.hud.story && view.hud.story.epilogue.length > 0 && <StoryCard story={view.hud.story} />}
         <FinalScreen f={view.final} onHome={() => router.replace('/')} />
       </Screen>
     );
@@ -211,6 +213,7 @@ export default function CareerScreen() {
       {tab === 'jogador' && view.hud.home && view.status === 'Active' && (
         <HomeShop home={view.hud.home} busy={busy} onBuy={(item) => act('Buy', undefined, undefined, item)} />
       )}
+      {tab === 'jogador' && view.hud.story && <StoryCard story={view.hud.story} />}
       {tab === 'jogador' && view.hud.love && <LoveCard love={view.hud.love} />}
       {tab === 'jogador' && view.hud.gossip && view.hud.gossip.length > 0 && <GossipFeed items={view.hud.gossip} />}
       {tab === 'jogador' && view.hud.trophies && <TrophyRoom room={view.hud.trophies} />}
