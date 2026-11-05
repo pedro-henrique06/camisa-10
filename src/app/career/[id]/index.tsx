@@ -191,7 +191,8 @@ export default function CareerScreen() {
 
   return (
     <Screen scrollRef={scroll} footer={bottom} footerSpace={footer ? 180 : 110}>
-      {tab === 'jogador' ? (
+      {/* Hoje e Jogador mostram o cartão completo; as outras abas, a versão compacta */}
+      {tab === 'jogador' || tab === 'hoje' ? (
         <Hud
           hud={view.hud}
           busy={busy}
