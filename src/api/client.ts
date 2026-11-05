@@ -237,4 +237,6 @@ export const api = {
   duelChoose: (id: string, index: number) =>
     request<DuelView>(`/api/duels/${id}/choose`, { method: 'POST', body: JSON.stringify({ index }) }),
   duelAuto: (id: string) => request<DuelView>(`/api/duels/${id}/auto`, { method: 'POST' }),
+  /** Rola o seu d20 no lance (depois que os dois escolheram a jogada). */
+  duelRoll: (id: string) => request<DuelView>(`/api/duels/${id}/roll`, { method: 'POST' }),
 };
