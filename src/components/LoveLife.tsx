@@ -116,7 +116,7 @@ export function GossipFeed({ items }: { items: GossipItem[] }) {
       <Text style={[styles.section, { color: t.mut, marginBottom: 8 }]}>📰 REVISTAS E SITES DE FOFOCA</Text>
       {shown.map((g, i) => {
         const scandal = g.kind === 'escandalo';
-        const accent = scandal ? t.bad : g.kind === 'luxo' ? t.warn : t.acc;
+        const accent = scandal ? t.bad : g.kind === 'luxo' ? t.warn : g.kind === 'negocios' ? t.good : t.acc;
         return (
           <View key={`gossip-${i}`} style={[styles.news, { borderLeftColor: accent, backgroundColor: scandal ? alpha(t.bad, 0.08) : t.cardHi }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>

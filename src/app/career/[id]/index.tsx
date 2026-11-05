@@ -6,6 +6,7 @@ import { api } from '@/api/client';
 import type { ActionType, GameView } from '@/api/types';
 import { CareerTabs, type CareerTab } from '@/components/CareerTabs';
 import { Hud } from '@/components/Hud';
+import { BusinessPage } from '@/components/BusinessPage';
 import { HomeShop } from '@/components/HomeShop';
 import { GossipFeed, LoveCard } from '@/components/LoveLife';
 import { TrophyRoom } from '@/components/TrophyRoom';
@@ -67,8 +68,8 @@ export default function CareerScreen() {
     try {
       const next = await api.act(view.id, view.version, type, index, power, clubId);
       setView(next);
-      // comprar para a casa: fica na aba Jogador
-      if (type === 'Buy') {
+      // comprar para a casa ou mexer nos negócios: fica na mesma aba
+      if (type === 'Buy' || type === 'OpenCompany' || type === 'ExpandCompany' || type === 'SellCompany' || type === 'Invest' || type === 'Withdraw') {
         haptic.success();
         return;
       }
@@ -206,6 +207,7 @@ export default function CareerScreen() {
       )}
       {tab === 'calendario' && view.calendar && <SeasonPage cal={view.calendar} />}
       {tab === 'tabela' && view.calendar && <TablePage cal={view.calendar} />}
+      {tab === 'negocios' && view.hud.business && <BusinessPage biz={view.hud.business} busy={busy} active={view.status === 'Active'} act={act} />}
       {tab === 'jogador' && view.hud.home && view.status === 'Active' && (
         <HomeShop home={view.hud.home} busy={busy} onBuy={(item) => act('Buy', undefined, undefined, item)} />
       )}

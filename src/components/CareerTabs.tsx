@@ -3,12 +3,13 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { font, useTheme } from '@/theme';
 import { haptic } from './ui';
 
-export type CareerTab = 'hoje' | 'calendario' | 'tabela' | 'jogador';
+export type CareerTab = 'hoje' | 'calendario' | 'tabela' | 'negocios' | 'jogador';
 
 const TABS: { key: CareerTab; icon: string; label: string }[] = [
   { key: 'hoje', icon: '⚽', label: 'Hoje' },
   { key: 'calendario', icon: '📅', label: 'Calendário' },
   { key: 'tabela', icon: '🏆', label: 'Tabela' },
+  { key: 'negocios', icon: '💼', label: 'Negócios' },
   { key: 'jogador', icon: '👤', label: 'Jogador' },
 ];
 
