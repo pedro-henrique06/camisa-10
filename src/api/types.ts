@@ -2,7 +2,19 @@
 
 export type Phase = 'Calendar' | 'Event' | 'Penalty' | 'Result' | 'Duel' | 'Market' | 'Swap' | 'Promotion' | 'SeasonSummary' | 'Decision' | 'Finished';
 
-export type ActionType = 'Continue' | 'Choose' | 'Stay' | 'SearchClub' | 'Retire' | 'Offer' | 'Buy';
+export type ActionType =
+  | 'Continue'
+  | 'Choose'
+  | 'Stay'
+  | 'SearchClub'
+  | 'Retire'
+  | 'Offer'
+  | 'Buy'
+  | 'OpenCompany'
+  | 'ExpandCompany'
+  | 'SellCompany'
+  | 'Invest'
+  | 'Withdraw';
 
 export interface Badge {
   primary: string;
@@ -71,6 +83,65 @@ export interface HudView {
   love?: LoveView;
   /** Notas das revistas e sites de fofoca (da mais nova para a mais antiga). */
   gossip?: GossipItem[];
+  /** Empresas e investimentos. */
+  business?: BusinessView;
+}
+
+export interface BusinessView {
+  money: number;
+  /** Dinheiro + empresas ativas + investimentos. */
+  netWorth: number;
+  seasonProfit: number;
+  totalProfit: number;
+  companies: CompanyView[];
+  catalog: CompanyKind[];
+  investments: InvestmentView[];
+}
+
+export interface CompanyView {
+  id: string;
+  kind: string;
+  name: string;
+  icon: string;
+  kindName: string;
+  unit: string;
+  level: number;
+  maxLevel: number;
+  invested: number;
+  value: number;
+  lastProfit: number;
+  totalProfit: number;
+  /** ativa, vendida, fechada ou falida. */
+  status: string;
+  manager: boolean;
+  expandCost?: number | null;
+  sellPrice: number;
+  openedAge: number;
+  history: { age: number; profit: number; value: number; level: number; note?: string | null }[];
+}
+
+export interface CompanyKind {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  cost: number;
+  risk: string;
+  expected: string;
+  affordable: boolean;
+}
+
+export interface InvestmentView {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  risk: string;
+  expected: string;
+  principal: number;
+  value: number;
+  lastReturn: number;
+  history: { age: number; value: number; return: number }[];
 }
 
 export type LoveStage = 'solteiro' | 'ficando' | 'namorando' | 'noivo' | 'casado' | 'separado';
