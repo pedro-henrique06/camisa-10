@@ -1,17 +1,6 @@
 // Tipos que espelham as views devolvidas pelo backend (camisa_10_back, Camisa10.Domain/Views).
 
-export type Phase =
-  | 'Calendar'
-  | 'Event'
-  | 'Penalty'
-  | 'Result'
-  | 'Duel'
-  | 'Market'
-  | 'Swap'
-  | 'Promotion'
-  | 'SeasonSummary'
-  | 'Decision'
-  | 'Finished';
+export type Phase = 'Calendar' | 'Event' | 'Penalty' | 'Result' | 'Duel' | 'Market' | 'Swap' | 'Promotion' | 'SeasonSummary' | 'Decision' | 'Finished';
 
 export type ActionType = 'Continue' | 'Choose' | 'Stay' | 'SearchClub' | 'Retire' | 'Offer' | 'Buy';
 
@@ -78,6 +67,32 @@ export interface HudView {
   trophies?: TrophyRoom;
   /** Casa do jogador: equipamentos e profissionais para comprar. */
   home?: HomeView;
+  /** Vida amorosa: estágio, quem está com o jogador e a linha do tempo. */
+  love?: LoveView;
+  /** Notas das revistas e sites de fofoca (da mais nova para a mais antiga). */
+  gossip?: GossipItem[];
+}
+
+export type LoveStage = 'solteiro' | 'ficando' | 'namorando' | 'noivo' | 'casado' | 'separado';
+
+export interface LoveView {
+  stage: LoveStage;
+  stageLabel: string;
+  partner?: string | null;
+  partnerJob?: string | null;
+  /** 0 a 100. */
+  affection: number;
+  years: number;
+  cheats: number;
+  milestones: { age: number; icon: string; text: string }[];
+}
+
+export interface GossipItem {
+  age: number;
+  outlet: string;
+  headline: string;
+  /** romance, escandalo ou luxo. */
+  kind: string;
 }
 
 export interface CheckView {
@@ -273,7 +288,17 @@ export interface SeasonReport {
   /** Copas da temporada (estadual, copa nacional, continental). */
   cups?: { kind: CompetitionKind; name: string; result: string; champion: boolean }[];
   /** Jogos da temporada (placar, gols, assistências e nota). */
-  matches?: { kind: CompetitionKind; competition: string; opponent: string; home: boolean; for: number; against: number; goals: number; assists: number; rating: number }[];
+  matches?: {
+    kind: CompetitionKind;
+    competition: string;
+    opponent: string;
+    home: boolean;
+    for: number;
+    against: number;
+    goals: number;
+    assists: number;
+    rating: number;
+  }[];
 }
 
 /** Linha da tabela da liga. */
@@ -414,7 +439,16 @@ export interface MesaView {
   name: string;
   sync: boolean;
   isOwner: boolean;
-  members: { memberId: string; name: string; me: boolean; careerId: string | null; career: MesaFriend | null; badge: Badge | null; titles: number; goals: number }[];
+  members: {
+    memberId: string;
+    name: string;
+    me: boolean;
+    careerId: string | null;
+    career: MesaFriend | null;
+    badge: Badge | null;
+    titles: number;
+    goals: number;
+  }[];
   feed: { at: string; icon: string; text: string }[];
   duels: DuelSummary[];
   mode: MesaMode;

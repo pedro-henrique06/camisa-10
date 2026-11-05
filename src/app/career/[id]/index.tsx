@@ -7,20 +7,12 @@ import type { ActionType, GameView } from '@/api/types';
 import { CareerTabs, type CareerTab } from '@/components/CareerTabs';
 import { Hud } from '@/components/Hud';
 import { HomeShop } from '@/components/HomeShop';
+import { GossipFeed, LoveCard } from '@/components/LoveLife';
 import { TrophyRoom } from '@/components/TrophyRoom';
 import { Screen } from '@/components/Screen';
 import { Btn, Card, Eyebrow, H2, haptic, P, PressableScale } from '@/components/ui';
 import { Calendar, SeasonPage, TablePage } from '@/phases/Calendar';
-import {
-  DecisionCard,
-  EventCard,
-  FinalScreen,
-  MarketCard,
-  PromotionCard,
-  ResultCard,
-  SeasonCard,
-  SwapCard,
-} from '@/phases/Phases';
+import { DecisionCard, EventCard, FinalScreen, MarketCard, PromotionCard, ResultCard, SeasonCard, SwapCard } from '@/phases/Phases';
 import { font, useTheme } from '@/theme';
 
 /** Tela de jogo: mostra a fase atual vinda do servidor e envia as ações do jogador. */
@@ -124,7 +116,7 @@ export default function CareerScreen() {
 
   const next = () => act('Continue');
   // mesa: esperando um amigo chegar nesta data
-  const waiting = view.phase === 'Calendar' || view.phase === 'SeasonSummary' ? view.mesa?.waitingFor ?? [] : [];
+  const waiting = view.phase === 'Calendar' || view.phase === 'SeasonSummary' ? (view.mesa?.waitingFor ?? []) : [];
   const choose = (i: number, power?: number) => act('Choose', i, power);
   // Remonta a tela a cada nova versão para reiniciar as animações.
   const key = `${view.phase}-${view.version}`;
@@ -133,22 +125,23 @@ export default function CareerScreen() {
   let footer: ReactNode = null;
   switch (view.phase) {
     case 'Calendar':
-      footer = view.mesa?.mode === 'turno' ? (
-        view.mesa.ready ? (
-          <Btn label={`✅  Pronto · esperando ${waiting.join(', ') || 'a mesa'}…`} onPress={load} disabled={busy} />
+      footer =
+        view.mesa?.mode === 'turno' ? (
+          view.mesa.ready ? (
+            <Btn label={`✅  Pronto · esperando ${waiting.join(', ') || 'a mesa'}…`} onPress={load} disabled={busy} />
+          ) : (
+            <Btn primary label={`✋  Pronto${view.calendar?.nextDate ? ` · ir para ${view.calendar.nextDate}` : ''}`} onPress={next} busy={busy} />
+          )
+        ) : waiting.length ? (
+          <Btn label={`⏳  Esperando ${waiting.join(', ')}…`} onPress={load} disabled={busy} />
         ) : (
           <Btn
             primary
-            label={`✋  Pronto${view.calendar?.nextDate ? ` · ir para ${view.calendar.nextDate}` : ''}`}
+            label={view.calendar?.nextDate ? `Ir para ${view.calendar.nextDate}  ›` : `Começar o dia ${view.calendar?.nextDay ?? ''}  ›`}
             onPress={next}
             busy={busy}
           />
-        )
-      ) : waiting.length ? (
-        <Btn label={`⏳  Esperando ${waiting.join(', ')}…`} onPress={load} disabled={busy} />
-      ) : (
-        <Btn primary label={view.calendar?.nextDate ? `Ir para ${view.calendar.nextDate}  ›` : `Começar o dia ${view.calendar?.nextDay ?? ''}  ›`} onPress={next} busy={busy} />
-      );
+        );
       break;
     case 'Duel':
       footer = <Btn primary label="Ver o resultado do duelo  ›" onPress={next} busy={busy} />;
@@ -216,6 +209,8 @@ export default function CareerScreen() {
       {tab === 'jogador' && view.hud.home && view.status === 'Active' && (
         <HomeShop home={view.hud.home} busy={busy} onBuy={(item) => act('Buy', undefined, undefined, item)} />
       )}
+      {tab === 'jogador' && view.hud.love && <LoveCard love={view.hud.love} />}
+      {tab === 'jogador' && view.hud.gossip && view.hud.gossip.length > 0 && <GossipFeed items={view.hud.gossip} />}
       {tab === 'jogador' && view.hud.trophies && <TrophyRoom room={view.hud.trophies} />}
       {tab === 'jogador' && <PlayerExtras view={view} />}
       {tab === 'hoje' && (
@@ -223,7 +218,17 @@ export default function CareerScreen() {
           {view.mesa && (
             <PressableScale
               onPress={() => router.push({ pathname: '/mesa/[id]', params: { id: view.mesa!.id } })}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: t.line, backgroundColor: t.card, borderRadius: 12, padding: 10, marginBottom: 12 }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                borderWidth: 1,
+                borderColor: t.line,
+                backgroundColor: t.card,
+                borderRadius: 12,
+                padding: 10,
+                marginBottom: 12,
+              }}
             >
               <Text style={{ fontSize: 18 }}>🎲</Text>
               <Text style={{ flex: 1, color: t.ink, fontFamily: font.semibold }} numberOfLines={1}>
@@ -241,8 +246,8 @@ export default function CareerScreen() {
               <Eyebrow>Clássico da Mesa · {view.duel.competition}</Eyebrow>
               <H2>Contra {view.duel.opponentName}</H2>
               <P>
-                O jogo da rodada é contra o {view.duel.opponentClub}, de {view.duel.opponentName}. Desta vez a decisão é dos dois: 6 lances, um
-                ataca e o outro tenta adivinhar a jogada.
+                O jogo da rodada é contra o {view.duel.opponentClub}, de {view.duel.opponentName}. Desta vez a decisão é dos dois: 6 lances, um ataca e o outro
+                tenta adivinhar a jogada.
               </P>
               {view.duel.duelId && (
                 <Btn primary label="Jogar o duelo  ⚔️" onPress={() => router.push({ pathname: '/duel/[id]', params: { id: view.duel!.duelId! } })} />
@@ -250,9 +255,7 @@ export default function CareerScreen() {
             </Card>
           )}
           {view.phase === 'Calendar' && view.calendar && <Calendar key={key} cal={view.calendar} />}
-          {(view.phase === 'Event' || view.phase === 'Penalty') && view.event && (
-            <EventCard key={key} ev={view.event} onChoose={choose} busy={busy} />
-          )}
+          {(view.phase === 'Event' || view.phase === 'Penalty') && view.event && <EventCard key={key} ev={view.event} onChoose={choose} busy={busy} />}
           {view.phase === 'Result' && view.result && <ResultCard key={key} r={view.result} />}
           {view.phase === 'Market' && view.market && (
             <MarketCard
