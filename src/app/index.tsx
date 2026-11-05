@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { api, API_URL, useAccount } from '@/api/client';
-import type { CareerSummary, MesaSummary, MetaView } from '@/api/types';
+import type { CareerSummary, Difficulty, MesaSummary, MetaView } from '@/api/types';
 import { Badge, Jersey } from '@/components/art';
 import { ClubPicker, type PickedClub } from '@/components/ClubPicker';
 import { PositionPitch } from '@/components/PositionPitch';
@@ -35,6 +35,7 @@ export default function Home() {
   const [nationFilter, setNationFilter] = useState('');
   const [nation, setNation] = useState('Brasil');
   const [position, setPosition] = useState<string | null>(null);
+  const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
@@ -67,7 +68,8 @@ export default function Home() {
     if (creating || !position) return;
     setCreating(true);
     try {
-      const body = { name: name.trim() || 'Craque', club: club?.id ?? meta?.baseClubs[0]?.id ?? 'Flamengo', nation, position };
+      // no difícil sem clube escolhido, o servidor sorteia um da Série C do Brasil
+      const body = { name: name.trim() || 'Craque', club: club?.id ?? meta?.baseClubs[0]?.id ?? 'Flamengo', nation, position, difficulty };
       const v = mesaParam ? await api.createMesaCareer(mesaParam, body) : await api.create(body);
       setStep(null);
       router.push({ pathname: '/career/[id]', params: { id: v.id } });
@@ -79,7 +81,7 @@ export default function Home() {
   };
 
   // sem escolha, começa no primeiro clube em destaque (Flamengo)
-  const clubInfo = club ?? (meta?.baseClubs[0] ? { ...meta.baseClubs[0], country: 'Brasil', flag: '🇧🇷', league: '' } : null);
+  const clubInfo = club ?? (difficulty !== 'dificil' && meta?.baseClubs[0] ? { ...meta.baseClubs[0], country: 'Brasil', flag: '🇧🇷', league: '' } : null);
   const nationInfo = meta?.nations.find((n) => n.name === nation);
 
   // ------------------------------------------------------------ criação em passos
@@ -118,7 +120,7 @@ export default function Home() {
               {name.trim() || 'Craque'}
             </Text>
             <Text style={{ color: t.mut, fontFamily: font.medium }}>
-              Base do {clubInfo?.name} {clubInfo?.flag} · seleção {nationInfo?.flag} {nation}
+              {clubInfo ? `Base do ${clubInfo.name} ${clubInfo.flag}` : 'Clube da Série C sorteado'} · seleção {nationInfo?.flag} {nation}
               {position ? ` · ${position}` : ''}
             </Text>
           </View>
@@ -140,6 +142,33 @@ export default function Home() {
               onSubmitEditing={() => setStep(1)}
               style={[styles.input, { color: t.ink, borderColor: t.acc, backgroundColor: t.cardHi }]}
             />
+            {meta.difficulties && (
+              <>
+                <H2 style={{ marginTop: 16 }}>Dificuldade</H2>
+                <View style={{ gap: 8 }}>
+                  {meta.difficulties.map((d) => {
+                    const on = d.id === difficulty;
+                    return (
+                      <PressableScale
+                        key={d.id}
+                        accessibilityLabel={d.name}
+                        onPress={() => {
+                          setDifficulty(d.id);
+                          if (d.id === 'dificil') setClub(null); // o clube precisa ser da Série C
+                        }}
+                        style={[styles.level, { borderColor: on ? t.acc : t.line, backgroundColor: on ? t.accSoft : t.cardHi }]}
+                      >
+                        <Text style={{ fontSize: 26 }}>{d.icon}</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: t.ink, fontFamily: font.bold, fontSize: 16 }}>{d.name}</Text>
+                          <Text style={{ color: t.mut, fontFamily: font.regular, fontSize: 13 }}>{d.description}</Text>
+                        </View>
+                      </PressableScale>
+                    );
+                  })}
+                </View>
+              </>
+            )}
           </Card>
         )}
 
@@ -147,8 +176,12 @@ export default function Home() {
           <Card key="s1">
             <Eyebrow>Passo 2</Eyebrow>
             <H2>Clube da sua base</H2>
-            <P muted>211 países, cada um com Série A, B e C. Clubes maiores dão mais vitrine, mas a briga por espaço é maior.</P>
-            <ClubPicker selected={club} onPick={setClub} />
+            {difficulty === 'dificil' ? (
+              <P muted>No difícil, você começa num time pequeno: escolha um clube da última divisão (Série C) de qualquer país, ou deixe o jogo sortear.</P>
+            ) : (
+              <P muted>211 países, cada um com Série A, B e C. Clubes maiores dão mais vitrine, mas a briga por espaço é maior.</P>
+            )}
+            <ClubPicker selected={club} onPick={setClub} lowestOnly={difficulty === 'dificil'} />
           </Card>
         )}
 
@@ -166,7 +199,21 @@ export default function Home() {
             />
             <View style={styles.grid}>
               {meta.nations
-                .filter((n) => !nationFilter.trim() || n.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(nationFilter.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()))
+                .filter(
+                  (n) =>
+                    !nationFilter.trim() ||
+                    n.name
+                      .normalize('NFD')
+                      .replace(/[\u0300-\u036f]/g, '')
+                      .toLowerCase()
+                      .includes(
+                        nationFilter
+                          .trim()
+                          .normalize('NFD')
+                          .replace(/[\u0300-\u036f]/g, '')
+                          .toLowerCase(),
+                      ),
+                )
                 .slice(0, nationFilter.trim() ? 211 : 24)
                 .map((n) => {
                   const on = n.name === nation;
@@ -175,7 +222,7 @@ export default function Home() {
                       key={n.name}
                       onPress={() => setNation(n.name)}
                       containerStyle={styles.tileBox}
-                    style={[styles.tile, { borderColor: on ? t.acc : t.line, backgroundColor: on ? t.accSoft : t.cardHi }]}
+                      style={[styles.tile, { borderColor: on ? t.acc : t.line, backgroundColor: on ? t.accSoft : t.cardHi }]}
                       accessibilityLabel={n.name}
                     >
                       <Text style={{ fontSize: 28 }}>{n.flag}</Text>
@@ -186,7 +233,11 @@ export default function Home() {
                   );
                 })}
             </View>
-            {!nationFilter.trim() && <P muted style={{ textAlign: 'center', fontSize: 13 }}>Mostrando as 24 mais fortes. Use a busca para ver todas.</P>}
+            {!nationFilter.trim() && (
+              <P muted style={{ textAlign: 'center', fontSize: 13 }}>
+                Mostrando as 24 mais fortes. Use a busca para ver todas.
+              </P>
+            )}
           </Card>
         )}
 
@@ -419,6 +470,7 @@ const styles = StyleSheet.create({
   steps: { flexDirection: 'row', gap: 8, marginBottom: 14 },
   preview: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 16, padding: 12, marginBottom: 14 },
   input: { borderWidth: 2, borderRadius: 14, padding: 14, fontSize: 20, marginTop: 8, fontFamily: font.semibold },
+  level: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderRadius: 14, padding: 12 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8, justifyContent: 'space-between' },
   tileBox: { width: '31.5%', flexGrow: 1 },
   tile: { width: '100%', minHeight: 92, borderWidth: 1.5, borderRadius: 14, alignItems: 'center', justifyContent: 'center', padding: 6, gap: 4 },

@@ -23,7 +23,16 @@ export function StoryCard({ story }: { story: StoryView }) {
         </Card>
       )}
       <Card>
-        <Text style={[styles.section, { color: t.mut }]}>🧬 SUA HISTÓRIA</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={[styles.section, { color: t.mut, flex: 1 }]}>🧬 SUA HISTÓRIA</Text>
+          {story.difficultyName && (
+            <Text
+              style={{ color: story.difficulty === 'dificil' ? t.bad : story.difficulty === 'facil' ? t.good : t.mut, fontFamily: font.bold, fontSize: 12 }}
+            >
+              {story.difficultyIcon} {story.difficultyName}
+            </Text>
+          )}
+        </View>
         {story.originName && (
           <View style={styles.origin}>
             <Text style={{ fontSize: 30 }}>{story.originIcon}</Text>

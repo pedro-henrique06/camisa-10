@@ -180,18 +180,13 @@ export const api = {
     });
     return metaCache;
   },
-  careers: (status?: 'Active' | 'Finished') =>
-    request<CareerSummary[]>('/api/careers' + (status ? `?status=${status}` : '')),
-  create: (body: { name: string; club: string; nation: string; position: string }) =>
+  careers: (status?: 'Active' | 'Finished') => request<CareerSummary[]>('/api/careers' + (status ? `?status=${status}` : '')),
+  create: (body: { name: string; club: string; nation: string; position: string; difficulty?: string }) =>
     request<GameView>('/api/careers', { method: 'POST', body: JSON.stringify(body) }),
   get: (id: string) => request<GameView>(`/api/careers/${id}`),
   /** 409 (tela desatualizada) também devolve a tela atual, então é tratado como resposta normal. */
   act: (id: string, version: number, type: ActionType, index?: number, power?: number, clubId?: string) =>
-    request<GameView>(
-      `/api/careers/${id}/actions`,
-      { method: 'POST', body: JSON.stringify({ type, index, power, version, clubId }) },
-      [409],
-    ),
+    request<GameView>(`/api/careers/${id}/actions`, { method: 'POST', body: JSON.stringify({ type, index, power, version, clubId }) }, [409]),
   history: (id: string) => request<HistoryView>(`/api/careers/${id}/history`),
   /** Os 211 países com as três divisões. */
   countries: () => request<CountrySummary[]>('/api/world'),
@@ -221,12 +216,10 @@ export const api = {
 
   // ---------------------------------------------------------------- mesa com amigos
   mesas: () => request<MesaSummary[]>('/api/mesas'),
-  createMesa: (name: string, playerName: string) =>
-    request<MesaView>('/api/mesas', { method: 'POST', body: JSON.stringify({ name, playerName }) }),
-  joinMesa: (code: string, playerName: string) =>
-    request<MesaView>('/api/mesas/join', { method: 'POST', body: JSON.stringify({ code, playerName }) }),
+  createMesa: (name: string, playerName: string) => request<MesaView>('/api/mesas', { method: 'POST', body: JSON.stringify({ name, playerName }) }),
+  joinMesa: (code: string, playerName: string) => request<MesaView>('/api/mesas/join', { method: 'POST', body: JSON.stringify({ code, playerName }) }),
   mesa: (id: string) => request<MesaView>(`/api/mesas/${id}`),
-  createMesaCareer: (mesaId: string, body: { name: string; club: string; nation: string; position: string }) =>
+  createMesaCareer: (mesaId: string, body: { name: string; club: string; nation: string; position: string; difficulty?: string }) =>
     request<GameView>(`/api/mesas/${mesaId}/careers`, { method: 'POST', body: JSON.stringify(body) }),
   /** Ritmo da mesa (só quem criou): livre, junto ou turno (avançar junto com o botão Pronto). */
   setMode: (mesaId: string, mode: MesaMode) =>
@@ -234,8 +227,7 @@ export const api = {
   challenge: (mesaId: string, opponentMemberId: string) =>
     request<DuelView>(`/api/mesas/${mesaId}/duels`, { method: 'POST', body: JSON.stringify({ opponentMemberId }) }),
   duel: (id: string) => request<DuelView>(`/api/duels/${id}`),
-  duelChoose: (id: string, index: number) =>
-    request<DuelView>(`/api/duels/${id}/choose`, { method: 'POST', body: JSON.stringify({ index }) }),
+  duelChoose: (id: string, index: number) => request<DuelView>(`/api/duels/${id}/choose`, { method: 'POST', body: JSON.stringify({ index }) }),
   duelAuto: (id: string) => request<DuelView>(`/api/duels/${id}/auto`, { method: 'POST' }),
   /** Rola o seu d20 no lance (depois que os dois escolheram a jogada). */
   duelRoll: (id: string) => request<DuelView>(`/api/duels/${id}/roll`, { method: 'POST' }),

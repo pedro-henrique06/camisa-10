@@ -23,12 +23,13 @@ const POPULAR = ['BR', 'AR', 'PT', 'ES', 'GB-ENG', 'IT', 'DE', 'FR', 'US', 'MX',
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
-type Props = { selected: PickedClub | null; onPick: (c: PickedClub) => void };
+/** `lowestOnly`: só a última divisão de cada país (modo difícil, que começa na Série C). */
+type Props = { selected: PickedClub | null; onPick: (c: PickedClub) => void; lowestOnly?: boolean };
 
 /**
  * Escolha do clube em qualquer país do mundo: busca pelo nome, ou país → divisão (A, B, C) → clube.
  */
-export function ClubPicker({ selected, onPick }: Props) {
+export function ClubPicker({ selected, onPick, lowestOnly }: Props) {
   const t = useTheme();
   const [countries, setCountries] = useState<CountrySummary[] | null>(null);
   const [iso, setIso] = useState('BR');
@@ -74,10 +75,7 @@ export function ClubPicker({ selected, onPick }: Props) {
 
   const summary = countries?.find((c) => c.iso === iso);
   const popular = useMemo(() => POPULAR.map((p) => countries?.find((c) => c.iso === p)).filter(Boolean) as CountrySummary[], [countries]);
-  const filtered = useMemo(
-    () => (countries ?? []).filter((c) => !filter.trim() || norm(c.name).includes(norm(filter.trim()))),
-    [countries, filter],
-  );
+  const filtered = useMemo(() => (countries ?? []).filter((c) => !filter.trim() || norm(c.name).includes(norm(filter.trim()))), [countries, filter]);
 
   const chooseCountry = (c: CountrySummary) => {
     setCountry(null);
@@ -87,36 +85,40 @@ export function ClubPicker({ selected, onPick }: Props) {
     setFilter('');
   };
 
-  const searching = query.trim().length >= 2;
+  const searching = !lowestOnly && query.trim().length >= 2;
+  // no modo difícil, sempre a última divisão do país
+  const div = lowestOnly && country ? country.leagues.length - 1 : division;
 
   return (
     <View>
       {/* busca */}
-      <View style={[styles.search, { borderColor: searching ? t.acc : t.line, backgroundColor: t.cardHi }]}>
-        <Text style={{ fontSize: 16 }}>🔎</Text>
-        <TextInput
-          value={query}
-          onChangeText={(v) => {
-            setQuery(v);
-            if (v.trim().length < 2) setResults(null);
-          }}
-          placeholder="Buscar clube em qualquer país"
-          placeholderTextColor={t.mut}
-          style={{ flex: 1, color: t.ink, fontFamily: font.medium, fontSize: 16, paddingVertical: 4 }}
-          autoCorrect={false}
-        />
-        {!!query && (
-          <Pressable
-            onPress={() => {
-              setQuery('');
-              setResults(null);
+      {!lowestOnly && (
+        <View style={[styles.search, { borderColor: searching ? t.acc : t.line, backgroundColor: t.cardHi }]}>
+          <Text style={{ fontSize: 16 }}>🔎</Text>
+          <TextInput
+            value={query}
+            onChangeText={(v) => {
+              setQuery(v);
+              if (v.trim().length < 2) setResults(null);
             }}
-            hitSlop={10}
-          >
-            <Text style={{ color: t.mut, fontSize: 16 }}>✕</Text>
-          </Pressable>
-        )}
-      </View>
+            placeholder="Buscar clube em qualquer país"
+            placeholderTextColor={t.mut}
+            style={{ flex: 1, color: t.ink, fontFamily: font.medium, fontSize: 16, paddingVertical: 4 }}
+            autoCorrect={false}
+          />
+          {!!query && (
+            <Pressable
+              onPress={() => {
+                setQuery('');
+                setResults(null);
+              }}
+              hitSlop={10}
+            >
+              <Text style={{ color: t.mut, fontSize: 16 }}>✕</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
 
       {error && <Text style={{ color: t.bad, fontFamily: font.medium, marginTop: 8 }}>{error}</Text>}
 
@@ -130,9 +132,7 @@ export function ClubPicker({ selected, onPick }: Props) {
             results.map((r) => (
               <PressableScale
                 key={r.id}
-                onPress={() =>
-                  onPick({ id: r.id, name: r.name, badge: r.badge, tier: r.tier, country: r.country, flag: r.flag, league: r.league })
-                }
+                onPress={() => onPick({ id: r.id, name: r.name, badge: r.badge, tier: r.tier, country: r.country, flag: r.flag, league: r.league })}
                 style={[styles.result, { borderColor: selected?.id === r.id ? t.acc : t.line, backgroundColor: selected?.id === r.id ? t.accSoft : t.cardHi }]}
               >
                 <Badge badge={r.badge} size={28} />
@@ -205,21 +205,23 @@ export function ClubPicker({ selected, onPick }: Props) {
           {/* divisão */}
           {summary && (
             <View style={styles.tabs}>
-              {summary.leagues.map((l) => {
-                const on = l.division === division;
-                return (
-                  <Pressable
-                    key={l.division}
-                    onPress={() => setDivision(l.division)}
-                    style={[styles.tab, { borderColor: on ? t.acc : t.line, backgroundColor: on ? t.acc : t.cardHi }]}
-                  >
-                    <Text style={[condensed, { color: on ? t.accText : t.ink, fontSize: 20 }]}>{l.letter}</Text>
-                    <Text style={{ color: on ? t.accText : t.mut, fontFamily: font.semibold, fontSize: 10, textAlign: 'center' }} numberOfLines={2}>
-                      {l.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+              {summary.leagues
+                .filter((l, i) => !lowestOnly || i === summary.leagues.length - 1)
+                .map((l) => {
+                  const on = l.division === div;
+                  return (
+                    <Pressable
+                      key={l.division}
+                      onPress={() => setDivision(l.division)}
+                      style={[styles.tab, { borderColor: on ? t.acc : t.line, backgroundColor: on ? t.acc : t.cardHi }]}
+                    >
+                      <Text style={[condensed, { color: on ? t.accText : t.ink, fontSize: 20 }]}>{l.letter}</Text>
+                      <Text style={{ color: on ? t.accText : t.mut, fontFamily: font.semibold, fontSize: 10, textAlign: 'center' }} numberOfLines={2}>
+                        {l.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
             </View>
           )}
 
@@ -228,7 +230,7 @@ export function ClubPicker({ selected, onPick }: Props) {
             <ActivityIndicator color={t.acc} style={{ marginVertical: 24 }} />
           ) : (
             <View style={styles.grid}>
-              {country.leagues[division].clubs.map((c) => {
+              {country.leagues[div].clubs.map((c) => {
                 const on = selected?.id === c.id;
                 return (
                   <PressableScale
@@ -242,7 +244,7 @@ export function ClubPicker({ selected, onPick }: Props) {
                         tier: c.tier,
                         country: country.name,
                         flag: country.flag,
-                        league: country.leagues[division].name,
+                        league: country.leagues[div].name,
                       })
                     }
                     containerStyle={styles.tileBox}

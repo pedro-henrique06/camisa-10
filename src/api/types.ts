@@ -98,6 +98,9 @@ export interface StoryView {
   /** Eixos de −10 a +10. */
   reputation: { key: string; low: string; high: string; value: number }[];
   epilogue: string[];
+  difficulty?: Difficulty;
+  difficultyName?: string;
+  difficultyIcon?: string;
 }
 
 export interface BusinessView {
@@ -626,7 +629,11 @@ export interface MetaView {
   positions: string[];
   /** Ausente em servidores antigos. */
   positionInfo?: PositionOption[];
+  /** Fácil, Normal e Difícil. */
+  difficulties?: { id: Difficulty; name: string; icon: string; description: string }[];
 }
+
+export type Difficulty = 'facil' | 'normal' | 'dificil';
 
 export interface CareerSummary {
   id: string;
