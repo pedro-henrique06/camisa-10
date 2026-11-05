@@ -85,7 +85,7 @@ export function EventCard({ ev, onChoose, busy }: { ev: EventView; onChoose: (i:
   return (
     <Card>
       {ev.competition && <Competition c={ev.competition} />}
-      {ev.match && ev.match.lines.length > 0 && <MatchPitch match={ev.match} onDone={() => setLive(false)} />}
+      {ev.match && ev.match.lines.length > 0 && <MatchPitch match={ev.match} meName="Você" onDone={() => setLive(false)} />}
       {ev.routine && (
         <View style={[styles.tpbar, { backgroundColor: t.cardHi, borderColor: t.line }]}>
           <Badge badge={ev.routine.clubBadge} size={26} />
@@ -154,7 +154,7 @@ export function ResultCard({ r }: { r: ResultView }) {
   }
   return (
     <Card accent={c}>
-      {r.match && r.match.lines.length > 0 && <MatchPitch match={r.match} />}
+      {r.match && r.match.lines.length > 0 && <MatchPitch match={r.match} meName="Você" />}
       {r.success && !big && !r.penalty && r.chips.some((ch) => ch.up && ch.text.startsWith('Gol ')) && (
         <View pointerEvents="none" style={styles.fireworks}>
           <Celebration kind="fogos" />

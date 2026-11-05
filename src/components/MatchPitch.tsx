@@ -1,106 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Rect } from 'react-native-svg';
 
 import type { MatchLine, MatchView } from '@/api/types';
 import { Badge } from '@/components/art';
+import { attackShare, createSim, lineAt, MY_SLOT, STEP_MS, stepSim, type P, type Sim } from '@/components/pitchSim';
 import { haptic } from '@/components/ui';
 import { alpha, compColor, condensed, font, useTheme } from '@/theme';
 
-const STEP_MS = 1250;
 const RATIO = 0.62;
 const DOT = 11;
 const ME = 15;
-
-type P = { x: number; y: number };
-
-/** 4-4-2 no próprio campo (x de 0 a 0,5, atacando para a direita). */
-const FORMATION: P[] = [
-  { x: 0.04, y: 0.5 },
-  { x: 0.17, y: 0.14 }, { x: 0.15, y: 0.38 }, { x: 0.15, y: 0.62 }, { x: 0.17, y: 0.86 },
-  { x: 0.31, y: 0.16 }, { x: 0.29, y: 0.4 }, { x: 0.29, y: 0.6 }, { x: 0.31, y: 0.84 },
-  { x: 0.44, y: 0.38 }, { x: 0.44, y: 0.62 },
-];
-
-/** Qual bolinha é o jogador, pela posição. */
-const MY_SLOT: Record<string, number> = { Atacante: 9, Ponta: 5, Meia: 6, Volante: 7, Lateral: 1, Zagueiro: 2 };
-
-/** Número pseudoaleatório estável (mesma linha, mesma jogada). */
-function rnd(seed: number) {
-  const v = Math.sin(seed * 9301 + 49297) * 233280;
-  return v - Math.floor(v);
-}
-
-const clamp = (v: number, a = 0.02, b = 0.98) => Math.min(b, Math.max(a, v));
-
-/** Onde a bola vai em cada tipo de linha da narração (o time do jogador ataca para a direita). */
-function ballFor(line: MatchLine, focus: MatchView['focus'], i: number): P {
-  const r = rnd(i + line.minute * 7);
-  switch (line.type) {
-    case 'goal-for':
-      return { x: 0.985, y: 0.46 + r * 0.08 };
-    case 'goal-against':
-      return { x: 0.015, y: 0.46 + r * 0.08 };
-    case 'chance-for':
-      return { x: 0.84 + r * 0.06, y: 0.3 + r * 0.4 };
-    case 'chance-against':
-      return { x: 0.1 + r * 0.06, y: 0.3 + r * 0.4 };
-    case 'whistle':
-      return { x: 0.5, y: 0.5 };
-    case 'decision':
-      return (
-        {
-          attack: { x: 0.79, y: 0.42 },
-          defense: { x: 0.22, y: 0.55 },
-          center: { x: 0.56, y: 0.5 },
-          cup: { x: 0.74, y: 0.4 },
-          penalty: { x: 0.885, y: 0.5 },
-          pre: { x: 0.5, y: 0.5 },
-          result: { x: 0.5, y: 0.5 },
-        } as const
-      )[focus];
-    default:
-      return { x: 0.3 + r * 0.4, y: 0.15 + rnd(i * 3 + 1) * 0.7 };
-  }
-}
-
-/** Posições dos 22 jogadores com a bola em `ball`: o time se desloca com ela e os mais perto correm atrás. */
-function arrange(ball: P, line: MatchLine, focus: MatchView['focus'], mySlot: number, i: number) {
-  const kickoff = line.type === 'whistle';
-  const shift = kickoff ? 0 : ball.x - 0.5;
-  const mine = FORMATION.map((p, k) => {
-    if (k === 0) return { x: 0.04 + Math.max(0, shift) * 0.08, y: clamp(0.5 + (ball.y - 0.5) * 0.3) };
-    return {
-      x: clamp(p.x + 0.06 + shift * 0.45 + (rnd(i * 31 + k) - 0.5) * 0.04, 0.08, 0.92),
-      y: clamp(p.y + (ball.y - 0.5) * 0.3 + (rnd(i * 17 + k) - 0.5) * 0.06),
-    };
-  });
-  const opp = FORMATION.map((p, k) => {
-    if (k === 0) return { x: 0.96 - Math.max(0, -shift) * 0.08, y: clamp(0.5 + (ball.y - 0.5) * 0.3) };
-    return {
-      x: clamp(1 - (p.x + 0.06 - shift * 0.45) + (rnd(i * 13 + k) - 0.5) * 0.04, 0.08, 0.92),
-      y: clamp(p.y + (ball.y - 0.5) * 0.3 + (rnd(i * 7 + k) - 0.5) * 0.06),
-    };
-  });
-  if (!kickoff) {
-    // os mais próximos de cada time correm atrás da bola
-    const near = (list: P[]) =>
-      list.map((p, k) => ({ k, d: k === 0 ? 9 : Math.hypot(p.x - ball.x, p.y - ball.y) })).sort((a, b) => a.d - b.d).slice(0, 2);
-    near(mine).forEach(({ k }, n) => (mine[k] = { x: clamp(ball.x - 0.03 - n * 0.05), y: clamp(ball.y + (n ? 0.08 : 0.02)) }));
-    near(opp).forEach(({ k }, n) => (opp[k] = { x: clamp(ball.x + 0.03 + n * 0.05), y: clamp(ball.y - (n ? 0.08 : 0.03)) }));
-  }
-  if (line.type === 'decision') {
-    // no lance decisivo, a bola está com você (ou você vai para cima de quem está com ela)
-    const withBall = focus !== 'defense' && focus !== 'pre';
-    mine[mySlot] = withBall ? { x: clamp(ball.x - 0.02), y: ball.y } : { x: clamp(ball.x - 0.05), y: clamp(ball.y + 0.05) };
-    if (focus === 'penalty') {
-      opp.forEach((p, k) => k > 0 && (opp[k] = { x: clamp(0.72 + rnd(k) * 0.06), y: 0.2 + (k / 11) * 0.6 }));
-      mine.forEach((p, k) => k > 0 && k !== mySlot && (mine[k] = { x: clamp(0.7 + rnd(k + 5) * 0.06), y: 0.15 + (k / 11) * 0.7 }));
-      opp[0] = { x: 0.975, y: 0.5 };
-    }
-  }
-  return { mine, opp };
-}
+const BALL = 8;
 
 /** Distância entre duas cores #rrggbb (0 a ~441). */
 function colorDistance(a: string, b: string) {
@@ -119,47 +30,69 @@ function opponentColor(m: MatchView) {
  * Jogo ao vivo: placar, campo com as bolinhas correndo atrás da bola e a narração.
  * Toca as linhas uma a uma e chama `onDone` no fim (ou quando o jogador toca para pular).
  */
-export function MatchPitch({ match, onDone }: { match: MatchView; onDone?: () => void }) {
+export function MatchPitch({
+  match,
+  onDone,
+  meName,
+  friend,
+  hideBoard,
+}: {
+  match: MatchView;
+  onDone?: () => void;
+  /** Nome em cima da bolinha do jogador. */
+  meName?: string;
+  /** Duelo da Mesa: o amigo no time adversário (posição dele e nome em cima da bolinha). */
+  friend?: { position: string; name: string };
+  /** Sem o placar de cima (a tela já mostra um). */
+  hideBoard?: boolean;
+}) {
   const t = useTheme();
   const [width, setWidth] = useState(0);
   const [idx, setIdx] = useState(-1);
   const [done, setDone] = useState(false);
   const [dots] = useState(() => Array.from({ length: 22 }, () => new Animated.ValueXY({ x: -50, y: -50 })));
   const [ball] = useState(() => new Animated.ValueXY({ x: -50, y: -50 }));
-  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // barra de ataque: quanto do domínio é do time da casa (0 a 1)
+  const [share] = useState(() => new Animated.Value(0.5));
+  const shareNow = useRef(0.5);
+  const sim = useRef<Sim | null>(null);
+  const frame = useRef<number | null>(null);
   const lines = match.lines;
   const mySlot = MY_SLOT[match.position] ?? 6;
+  const friendSlot = friend ? 11 + (MY_SLOT[friend.position] ?? 9) : -1;
   const height = width * RATIO;
+  const total = lines.length * STEP_MS;
 
-  const place = (i: number, ms: number) => {
-    const line = lines[i];
-    if (!line || !width) return;
-    const b = ballFor(line, match.focus, i);
-    const { mine, opp } = arrange(b, line, match.focus, mySlot, i);
-    const px = (p: P, size: number) => ({ x: p.x * width - size / 2, y: p.y * height - size / 2 });
-    const all = [...mine, ...opp];
-    if (ms === 0) {
-      all.forEach((p, k) => dots[k].setValue(px(p, k === mySlot ? ME : DOT)));
-      ball.setValue(px(b, 8));
-      return;
-    }
-    const easing = Easing.inOut(Easing.quad);
-    Animated.parallel(
-      all.map((p, k) => Animated.timing(dots[k], { toValue: px(p, k === mySlot ? ME : DOT), duration: ms * 0.9, easing, useNativeDriver: true })),
-    ).start();
-    // a bola passa por um companheiro antes de chegar ao destino
-    const mid = { x: clamp((b.x + 0.5) / 2 + (rnd(i) - 0.5) * 0.2), y: clamp(0.2 + rnd(i + 9) * 0.6) };
-    Animated.sequence([
-      Animated.timing(ball, { toValue: px(mid, 8), duration: ms * 0.4, easing, useNativeDriver: true }),
-      Animated.timing(ball, { toValue: px(b, 8), duration: ms * 0.45, easing, useNativeDriver: true }),
-    ]).start();
+  /** Desenha a simulação: um único laço de animação move as 22 bolinhas e a bola. */
+  const draw = (s: Sim) => {
+    // o time da casa ataca para a direita, como no placar (quem joga fora vê o campo espelhado)
+    const flip = !match.home;
+    const px = (p: P, size: number) => ({
+      x: (flip ? 1 - p.x : p.x) * width - size / 2,
+      y: p.y * height - size / 2,
+    });
+    for (let k = 0; k < 22; k++) dots[k].setValue(px(s.pos[k], k === mySlot || k === friendSlot ? ME : DOT));
+    ball.setValue(px(s.ball, BALL));
+    // a barra anda devagar para o lado de quem ataca
+    const mine = attackShare(s);
+    const home = match.home ? mine : 1 - mine;
+    shareNow.current += (home - shareNow.current) * 0.04;
+    share.setValue(shareNow.current);
+  };
+
+  const stop = () => {
+    if (frame.current != null) cancelAnimationFrame(frame.current);
+    frame.current = null;
   };
 
   const finish = () => {
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
+    stop();
+    const s = sim.current ?? createSim(lines, match.focus, mySlot, friendSlot);
+    sim.current = s;
+    // pula para o fim: a simulação corre em segundos o que faltava, sem desenhar
+    stepSim(s, total, lines, match.focus, mySlot);
+    if (width) draw(s);
     setIdx(lines.length - 1);
-    place(lines.length - 1, 250);
     setDone(true);
     onDone?.();
   };
@@ -174,32 +107,40 @@ export function MatchPitch({ match, onDone }: { match: MatchView; onDone?: () =>
       } catch {}
       if (cancelled) return;
       if (reduce || lines.length === 0) {
-        timers.current.push(setTimeout(finish, 0));
+        finish();
         return;
       }
-      // começa do jeito que o trecho anterior terminou
-      place(0, 0);
-      lines.forEach((line, i) => {
-        timers.current.push(
-          setTimeout(() => {
-            setIdx(i);
-            place(i, STEP_MS);
-            if (line.type === 'goal-for') haptic.success();
-            if (line.type === 'goal-against') haptic.fail();
-          }, i * STEP_MS),
-        );
-      });
-      timers.current.push(
-        setTimeout(() => {
+      const s = createSim(lines, match.focus, mySlot, friendSlot);
+      sim.current = s;
+      draw(s);
+      let started: number | null = null;
+      let shown = -1;
+      const loop = (ts: number) => {
+        if (cancelled) return;
+        started ??= ts;
+        const now = Math.min(total, ts - started);
+        stepSim(s, now, lines, match.focus, mySlot);
+        draw(s);
+        const li = lineAt(now, lines.length);
+        if (li !== shown) {
+          shown = li;
+          setIdx(li);
+          if (lines[li].type === 'goal-for') haptic.success();
+          if (lines[li].type === 'goal-against') haptic.fail();
+        }
+        if (now >= total) {
+          frame.current = null;
           setDone(true);
           onDone?.();
-        }, lines.length * STEP_MS),
-      );
+          return;
+        }
+        frame.current = requestAnimationFrame(loop);
+      };
+      frame.current = requestAnimationFrame(loop);
     })();
     return () => {
       cancelled = true;
-      timers.current.forEach(clearTimeout);
-      timers.current = [];
+      stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [width]);
@@ -211,39 +152,60 @@ export function MatchPitch({ match, onDone }: { match: MatchView; onDone?: () =>
   const [hs, as] = match.home ? [f, a] : [a, f];
   const [hn, an] = match.home ? [match.team, match.opponent] : [match.opponent, match.team];
   const [hb, ab] = match.home ? [match.teamBadge, match.opponentBadge] : [match.opponentBadge, match.teamBadge];
-  const minute = cur ? cur.minute : lines[0]?.minute ?? 0;
+  const minute = cur ? cur.minute : (lines[0]?.minute ?? 0);
   const comp = compColor(t, match.kind);
   const myColor = match.teamBadge.primary;
   const oppColor = opponentColor(match);
   // o jogador em destaque não pode sumir no meio do time (ex.: camisa amarela do Brasil)
   const meColor = colorDistance(myColor, t.acc) < 120 ? '#ffffff' : t.acc;
+  // o amigo do duelo: destaque próprio, diferente do jogador e do time dele
+  const friendColor = colorDistance(oppColor, '#ff7ad9') < 120 ? '#7ae1ff' : '#ff7ad9';
+  const [homeColor, awayColor] = match.home ? [myColor, oppColor] : [oppColor, myColor];
+  const attacking = !cur
+    ? null
+    : cur.type === 'goal-for' || cur.type === 'chance-for' || cur.type === 'attack-for'
+      ? 'mine'
+      : cur.type === 'goal-against' || cur.type === 'chance-against' || cur.type === 'attack-against'
+        ? 'opp'
+        : null;
+  const attackName = attacking === 'mine' ? match.team : attacking === 'opp' ? match.opponent : null;
+  const attackHome = attacking == null ? null : (attacking === 'mine') === match.home;
+  // véu sobre as cores dos times, para a narração ficar legível (verde no gol a favor, vermelho no contra)
   const tone = (l: MatchLine | null) =>
-    !l ? t.cardHi
-    : l.type === 'goal-for' ? alpha(t.good, 0.22)
-    : l.type === 'goal-against' ? alpha(t.bad, 0.22)
-    : l.type === 'decision' ? t.accSoft
-    : t.cardHi;
+    !l
+      ? 'rgba(8,20,14,0.42)'
+      : l.type === 'goal-for'
+        ? alpha('#1f7a3d', 0.78)
+        : l.type === 'goal-against'
+          ? alpha('#8a1f1f', 0.78)
+          : l.type === 'decision'
+            ? alpha('#6b5200', 0.75)
+            : 'rgba(8,20,14,0.42)';
 
   return (
     <View style={styles.wrap}>
-      <View style={[styles.board, { backgroundColor: t.cardHi, borderColor: alpha(comp, 0.5) }]}>
-        <View style={styles.side}>
-          <Badge badge={hb} size={24} />
-          <Text numberOfLines={1} style={[styles.team, { color: t.ink }]}>{hn}</Text>
+      {!hideBoard && (
+        <View style={[styles.board, { backgroundColor: t.cardHi, borderColor: alpha(comp, 0.5) }]}>
+          <View style={styles.side}>
+            <Badge badge={hb} size={24} />
+            <Text numberOfLines={1} style={[styles.team, { color: t.ink }]}>
+              {hn}
+            </Text>
+          </View>
+          <View style={styles.center}>
+            <Text style={[condensed, styles.score, { color: t.ink }]}>
+              {hs} <Text style={{ color: t.mut }}>x</Text> {as}
+            </Text>
+            <Text style={[styles.minute, { color: match.final && done ? t.mut : t.bad }]}>{match.final && done ? 'FIM' : `${minute}'`}</Text>
+          </View>
+          <View style={[styles.side, { justifyContent: 'flex-end' }]}>
+            <Text numberOfLines={1} style={[styles.team, { color: t.ink, textAlign: 'right' }]}>
+              {an}
+            </Text>
+            <Badge badge={ab} size={24} />
+          </View>
         </View>
-        <View style={styles.center}>
-          <Text style={[condensed, styles.score, { color: t.ink }]}>
-            {hs} <Text style={{ color: t.mut }}>x</Text> {as}
-          </Text>
-          <Text style={[styles.minute, { color: match.final && done ? t.mut : t.bad }]}>
-            {match.final && done ? 'FIM' : `${minute}'`}
-          </Text>
-        </View>
-        <View style={[styles.side, { justifyContent: 'flex-end' }]}>
-          <Text numberOfLines={1} style={[styles.team, { color: t.ink, textAlign: 'right' }]}>{an}</Text>
-          <Badge badge={ab} size={24} />
-        </View>
-      </View>
+      )}
 
       <Pressable
         accessibilityRole="button"
@@ -272,28 +234,53 @@ export function MatchPitch({ match, onDone }: { match: MatchView; onDone?: () =>
             </Svg>
             {dots.map((v, k) => {
               const me = k === mySlot;
+              const pal = k === friendSlot;
               const mineTeam = k < 11;
-              const size = me ? ME : DOT;
+              const size = me || pal ? ME : DOT;
               return (
                 <Animated.View
                   key={k}
+                  testID={`pitch-dot-${k}`}
                   style={[
                     styles.dot,
                     {
                       width: size,
                       height: size,
                       borderRadius: size / 2,
-                      backgroundColor: me ? meColor : mineTeam ? myColor : oppColor,
-                      borderColor: me ? '#10261c' : 'rgba(255,255,255,0.85)',
-                      borderWidth: me ? 2 : 1.2,
-                      zIndex: me ? 3 : 1,
+                      backgroundColor: me ? meColor : pal ? friendColor : mineTeam ? myColor : oppColor,
+                      borderColor: me || pal ? '#10261c' : 'rgba(255,255,255,0.85)',
+                      borderWidth: me || pal ? 2 : 1.2,
+                      zIndex: me || pal ? 3 : 1,
                       transform: v.getTranslateTransform(),
                     },
                   ]}
                 />
               );
             })}
-            <Animated.View style={[styles.ball, { transform: ball.getTranslateTransform() }]} />
+            <Animated.View testID="pitch-ball" style={[styles.ball, { transform: ball.getTranslateTransform() }]} />
+            {/* nomes em cima do jogador e do amigo */}
+            {[
+              { k: mySlot, name: meName, color: meColor },
+              { k: friendSlot, name: friend?.name, color: friendColor },
+            ]
+              .filter((x) => x.k >= 0 && x.name)
+              .map((x) => (
+                <Animated.View key={`tag-${x.k}`} pointerEvents="none" style={[styles.tag, { transform: dots[x.k].getTranslateTransform() }]}>
+                  <View
+                    style={[
+                      styles.tagInner,
+                      {
+                        backgroundColor: 'rgba(0,0,0,0.55)',
+                        borderColor: x.color,
+                      },
+                    ]}
+                  >
+                    <Text numberOfLines={1} style={styles.tagText}>
+                      {x.name}
+                    </Text>
+                  </View>
+                </Animated.View>
+              ))}
             {!done && (
               <View style={styles.skip}>
                 <Text style={styles.skipText}>Toque para pular ›</Text>
@@ -303,29 +290,87 @@ export function MatchPitch({ match, onDone }: { match: MatchView; onDone?: () =>
         )}
       </Pressable>
 
-      <View style={[styles.feed, { backgroundColor: tone(cur), borderColor: t.line }]}>
-        {prev && (
-          <Text numberOfLines={1} style={[styles.prev, { color: t.mut }]}>
-            {`${prev.minute}' ${prev.text}`}
+      {/* barra de ataque: pende para o lado de quem ataca, com a narração dentro */}
+      <View testID="attack-bar" style={[styles.bar, { borderColor: alpha(comp, 0.45) }]}>
+        <Animated.View
+          style={[
+            styles.barFill,
+            {
+              left: 0,
+              backgroundColor: homeColor,
+              width: share.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0%', '100%'],
+              }),
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.barFill,
+            {
+              right: 0,
+              backgroundColor: awayColor,
+              width: share.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['100%', '0%'],
+              }),
+            },
+          ]}
+        />
+        <View style={[styles.barShade, { backgroundColor: tone(cur) }]} />
+        <View style={styles.barRow}>
+          <Text numberOfLines={1} style={[styles.arrow, { opacity: attackHome === true ? 1 : 0.2 }]}>
+            {attackHome === true ? '▶▶' : '▶'}
           </Text>
-        )}
-        <View style={styles.now}>
-          <View style={[styles.min, { backgroundColor: cur?.type === 'goal-for' ? t.good : cur?.type === 'goal-against' ? t.bad : comp }]}>
-            <Text style={styles.minText}>{cur ? `${cur.minute}'` : '…'}</Text>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.barLabel}>
+              {cur ? `${cur.minute}'` : '…'}
+              {attackName ? ` · ATAQUE ${attackName.toUpperCase()}` : cur?.type === 'decision' ? ' · SUA JOGADA' : cur?.type === 'whistle' ? ' · APITO' : ''}
+            </Text>
+            <Text
+              style={[
+                styles.barText,
+                {
+                  fontFamily: cur?.type?.startsWith('goal') || cur?.type === 'decision' ? font.bold : font.semibold,
+                },
+              ]}
+            >
+              {cur?.text ?? 'O narrador se prepara…'}
+            </Text>
           </View>
-          <Text style={[styles.lineText, { color: t.ink, fontFamily: cur?.type?.startsWith('goal') || cur?.type === 'decision' ? font.bold : font.medium }]}>
-            {cur?.text ?? 'O narrador se prepara…'}
+          <Text numberOfLines={1} style={[styles.arrow, { opacity: attackHome === false ? 1 : 0.2 }]}>
+            {attackHome === false ? '◀◀' : '◀'}
           </Text>
         </View>
       </View>
+      {prev && (
+        <Text numberOfLines={1} style={[styles.prev, { color: t.mut }]}>
+          {`${prev.minute}' ${prev.text}`}
+        </Text>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: 12, gap: 6 },
-  board: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, gap: 6 },
-  side: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
+  board: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  side: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 0,
+  },
   team: { flexShrink: 1, fontFamily: font.bold, fontSize: 13 },
   center: { alignItems: 'center', minWidth: 74 },
   score: { fontSize: 26, lineHeight: 28 },
@@ -344,12 +389,76 @@ const styles = StyleSheet.create({
     borderColor: '#10261c',
     zIndex: 4,
   },
-  skip: { position: 'absolute', right: 6, bottom: 4, backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
+  skip: {
+    position: 'absolute',
+    right: 6,
+    bottom: 4,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
   skipText: { color: '#fff', fontSize: 10, fontFamily: font.semibold },
-  feed: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, gap: 4, minHeight: 58, justifyContent: 'center' },
-  prev: { fontSize: 12, fontFamily: font.regular },
-  now: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  min: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, minWidth: 34, alignItems: 'center' },
-  minText: { color: '#fff', fontFamily: font.bold, fontSize: 12 },
-  lineText: { flex: 1, fontSize: 14, lineHeight: 19 },
+  prev: { fontSize: 12, fontFamily: font.regular, paddingHorizontal: 4 },
+  bar: {
+    borderWidth: 1,
+    borderRadius: 14,
+    overflow: 'hidden',
+    minHeight: 64,
+    justifyContent: 'center',
+  },
+  barFill: { position: 'absolute', top: 0, bottom: 0 },
+  barShade: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
+  barRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  arrow: {
+    color: '#fff',
+    fontFamily: font.bold,
+    fontSize: 11,
+    width: 30,
+    textAlign: 'center',
+    letterSpacing: -2,
+  },
+  barLabel: {
+    color: 'rgba(255,255,255,0.8)',
+    fontFamily: font.bold,
+    fontSize: 10,
+    letterSpacing: 0.8,
+  },
+  barText: {
+    color: '#fff',
+    fontSize: 14,
+    lineHeight: 19,
+    textShadowColor: 'rgba(0,0,0,0.4)',
+    textShadowRadius: 2,
+  },
+  // o nome fica centrado em cima da bolinha (que tem ME de largura)
+  tag: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    zIndex: 5,
+    width: 80,
+    marginLeft: -(80 - ME) / 2,
+    marginTop: -18,
+    alignItems: 'center',
+  },
+  tagInner: {
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    maxWidth: 80,
+  },
+  tagText: {
+    color: '#fff',
+    fontFamily: font.bold,
+    fontSize: 9,
+    textAlign: 'center',
+  },
 });

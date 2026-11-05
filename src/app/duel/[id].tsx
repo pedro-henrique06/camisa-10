@@ -3,8 +3,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { api } from '@/api/client';
-import type { DuelMoment, DuelView } from '@/api/types';
+import type { DuelMoment, DuelView, MatchLine, MatchView } from '@/api/types';
 import { Badge, D20 } from '@/components/art';
+import { MatchPitch } from '@/components/MatchPitch';
 import { Screen } from '@/components/Screen';
 import { Btn, Card, Eyebrow, FadeIn, H2, haptic, P, PressableScale } from '@/components/ui';
 import { alpha, chanceColor, condensed, font, useTheme } from '@/theme';
@@ -122,8 +123,17 @@ export default function DuelScreen() {
         </Card>
       )}
 
+      {/* o lance no campinho: você e o amigo em destaque, com as escolhas de cada um na narração */}
+      <MatchPitch
+        key={`pitch-${duel.history.length}`}
+        match={duelMatch(duel)}
+        meName={me.name}
+        friend={{ position: op.position, name: op.name }}
+        hideBoard
+      />
+
       {/* último lance resolvido */}
-      {last && <MomentCard key={duel.history.length} m={last} duel={duel} />}
+      {last && <MomentCard key={`moment-${duel.history.length}`} m={last} duel={duel} />}
 
       {/* lance atual */}
       {turn && (
@@ -211,6 +221,54 @@ export default function DuelScreen() {
       )}
     </Screen>
   );
+}
+
+/** Narração do lance: o que cada um escolheu e o que deu (do ponto de vista de quem vê). */
+function momentLines(m: DuelMoment, duel: DuelView, before: { for: number; against: number }): MatchLine[] {
+  const atk = m.attacker === 'home' ? duel.home : duel.away;
+  const def = m.attacker === 'home' ? duel.away : duel.home;
+  const mine = m.attacker === duel.mySide;
+  const [f, a] = duel.mySide === 'home' ? [m.homeGoals, m.awayGoals] : [m.awayGoals, m.homeGoals];
+  const kind = mine ? (m.goal ? 'goal-for' : 'chance-for') : m.goal ? 'goal-against' : 'chance-against';
+  const auto = (who: 'home' | 'away') => (m.autoPicked === who ? ' (o jogo escolheu por ele)' : '');
+  return [
+    {
+      minute: Math.max(1, m.minute - 1),
+      text: `${atk.name} parte com a bola e escolhe: ${m.attackLabel.toLowerCase()}${auto(m.attacker)}. ${def.name} tenta: ${m.defenseLabel.toLowerCase()}${auto(m.attacker === 'home' ? 'away' : 'home')}.`,
+      type: mine ? 'attack-for' : 'attack-against',
+      for: before.for,
+      against: before.against,
+    },
+    { minute: m.minute, text: `${m.goal ? 'GOL! ' : ''}${m.text}`, type: kind, for: f, against: a },
+  ];
+}
+
+/** O duelo como jogo ao vivo para o campinho: o último lance resolvido (ou o começo). */
+function duelMatch(duel: DuelView): MatchView {
+  const me = duel.mySide === 'home' ? duel.home : duel.away;
+  const op = duel.mySide === 'home' ? duel.away : duel.home;
+  const last = duel.history[duel.history.length - 1];
+  const prev = duel.history[duel.history.length - 2];
+  const score = (x?: DuelMoment) => (!x ? { for: 0, against: 0 } : duel.mySide === 'home' ? { for: x.homeGoals, against: x.awayGoals } : { for: x.awayGoals, against: x.homeGoals });
+  const before = score(prev);
+  const lines: MatchLine[] = last
+    ? momentLines(last, duel, before)
+    : [{ minute: 0, text: `Bola rolando: ${duel.home.club} x ${duel.away.club}. ${me.name} contra ${op.name}!`, type: 'whistle', for: 0, against: 0 }];
+  return {
+    team: me.club,
+    opponent: op.club,
+    teamBadge: me.badge,
+    opponentBadge: op.badge,
+    home: duel.mySide === 'home',
+    kind: duel.kind === 'league' ? 'league' : 'cup',
+    competition: duel.competition,
+    startFor: before.for,
+    startAgainst: before.against,
+    lines,
+    focus: 'attack',
+    final: duel.finished,
+    position: me.position,
+  };
 }
 
 function Side({ name, club, badge, me }: { name: string; club: string; badge: DuelView['home']['badge']; me: boolean }) {
